@@ -3,12 +3,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 export const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.REACT_APP_FIREBASE_APP_ID
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
@@ -16,15 +16,15 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // ─── AI Worker (Cloudflare) ──────────────────────────────────────────────────
-// Set REACT_APP_AI_WORKER_URL in .env to the deployed Worker origin, e.g.
+// Set VITE_AI_WORKER_URL in .env to the deployed Worker origin, e.g.
 //   https://sdet-ai-worker.<your-subdomain>.workers.dev
 // or http://localhost:8787 when running `wrangler dev`.
 
-export const AI_WORKER_URL = process.env.REACT_APP_AI_WORKER_URL || '';
+export const AI_WORKER_URL = import.meta.env.VITE_AI_WORKER_URL || '';
 
 async function callWorker(path, payload) {
   if (!AI_WORKER_URL) {
-    throw new Error('REACT_APP_AI_WORKER_URL is not configured. See .env.example.');
+    throw new Error('VITE_AI_WORKER_URL is not configured. See .env.example.');
   }
   const user = auth.currentUser;
   if (!user) throw new Error('Sign-in required.');
