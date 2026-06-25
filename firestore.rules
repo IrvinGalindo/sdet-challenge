@@ -1,0 +1,178 @@
+rules_version = '2';
+
+// ─── SDET Challenge / AI Interview Platform — Firestore security rules ───────
+//
+// Phase 1a baseline. Tightens client access to user/role/question data, leaves
+// the candidate `leaderboard` write path open until Phase 2 introduces signed
+// session tokens (see implementation plan, Module 2).
+//
+// Default policy is deny: anything not matched explicitly is rejected.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+    function isAuthed() {
+      return request.auth != null;
+    }
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function role() {
+      return isAuthed() ? userDoc().role : '';
+    }
+    function isSuperAdmin() { return isAuthed() && role() == 'superadmin'; }
+    function isAdmin()      { return isAuthed() && (role() == 'admin' || role() == 'superadmin'); }
+    function isStaff()      { return isAuthed() && (role() == 'interviewer' || role() == 'admin' || role() == 'superadmin'); }
+
+    // ── users/{uid} ─────────────────────────────────────────────────────────
+    // Only the user themselves or an admin can read; only admins/superadmins write.
+    match /users/{uid} {
+      allow read:   if isAuthed() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    // ── questions/{id} ──────────────────────────────────────────────────────
+    // Staff can read; admins manage. Used by QuestionsManager + seed script.
+    match /questions/{id} {
+      allow read:   if isStaff();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── leaderboard/{id} ────────────────────────────────────────────────────
+    // Legacy SDET challenge "session record". Reads require staff.
+    //
+    // KNOWN GAP: candidates submit unauthenticated via /challenge?candidateId=…
+    // (see App.jsx). Phase 2 will replace this collection with /sessions/ +
+    // signed Firebase custom tokens. Until then, writes stay open with shape
+    // checks to limit blast radius.
+    match /leaderboard/{id} {
+      allow read:   if isStaff();
+      allow create: if request.resource.data.keys().hasAll(['name', 'date'])
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() < 200;
+      allow update: if request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['score', 'total', 'pct', 'wrongN', 'lang', 'type',
+                                'foundKeys', 'wrongKeys', 'breakdown', 'date', 'name']);
+      allow delete: if isStaff();
+    }
+
+    // ── positions/{id} ─ (Phase 1+) HR-managed job postings ─────────────────
+    match /positions/{id} {
+      allow read:   if isStaff();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+
+      // Challenges must be readable by anonymous candidates so the room's
+      // ChallengeRunner can render them. They cannot read questions/{} or
+      // the parent position doc — only the challenges they're solving.
+      match /challenges/{cid} {
+        allow read:  if isAuthed();
+        allow write: if isAdmin();
+      }
+
+      // Other subcollections (questions, etc.) stay staff-only.
+      match /{sub=**} {
+        allow read:   if isStaff();
+        allow write:  if isAdmin();
+      }
+    }
+
+    // ── sessions/{id} ─ (Phase 2) live interview rooms ──────────────────────
+    //
+    // Auth model:
+    //   - Staff (interviewer/admin/superadmin) sign in normally.
+    //   - Candidates sign in *anonymously* in /room and "claim" the session
+    //     by stamping their anon uid into `candidateAuthUid` on first read.
+    //
+    // The URL token (in the link the interviewer copies) is the access proof
+    // — it is verified client-side. Once a candidate claims the session, only
+    // that anon uid can write its answers.
+    //
+    // The `report` field is reserved for Phase 4 evaluation output and
+    // remains write-protected from clients.
+    match /sessions/{id} {
+      allow read:   if isAuthed();
+      allow create: if isStaff();
+      allow update: if (
+                       // Staff: can change anything (including writing the `report`
+                       // field — Phase 4 evaluation result, written by the
+                       // interviewer's tab right after they end the interview).
+                       isStaff()
+                     )
+                    || (
+                       // Candidate claim: unclaimed → set candidateAuthUid + status.
+                       isAuthed()
+                       && resource.data.candidateAuthUid == null
+                       && request.resource.data.candidateAuthUid == request.auth.uid
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['candidateAuthUid', 'status', 'startedAt'])
+                     )
+                    || (
+                       // Same candidate after claim: limited mutations.
+                       isAuthed()
+                       && resource.data.candidateAuthUid == request.auth.uid
+                       && request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['status', 'startedAt'])
+                     );
+      allow delete: if isAdmin();
+
+      // ── sessions/{id}/answers/{aid} — write-once submissions ───────────
+      match /answers/{aid} {
+        allow read:   if isAuthed();
+        allow create: if isAuthed()
+                      && request.resource.data.keys().hasAll(['challengeId', 'kind', 'submittedAt'])
+                      && (request.resource.data.candidateAuthUid == request.auth.uid || isStaff());
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+
+      // ── sessions/{id}/transcript_chunks/{seq} — Phase 3 ────────────────
+      // Either party (interviewer or claimed candidate) can append chunks
+      // tagged with their own role. Chunks are append-only.
+      match /transcript_chunks/{seq} {
+        allow read:   if isAuthed();
+        allow create: if isAuthed()
+                      && request.resource.data.keys().hasAll(['speaker', 'text', 'createdAt'])
+                      && request.resource.data.text is string
+                      && request.resource.data.text.size() < 2000;
+        allow update: if false;
+        allow delete: if isAdmin();
+      }
+
+      // ── sessions/{id}/suggestions/{id} — Phase 3 AI co-pilot output ────
+      // Written by the interviewer's tab after each /liveSuggestion call.
+      // Visible to both staff and (currently) the candidate — though the UI
+      // only renders them on the interviewer side.
+      match /suggestions/{id} {
+        allow read:   if isStaff();
+        allow create: if isStaff()
+                      && request.resource.data.keys().hasAll(['suggestion', 'createdAt']);
+        allow update: if false;
+        allow delete: if isStaff();
+      }
+    }
+
+    // ── ai_audit/{id} ─ (Phase 1+) audit log of every LLM call ──────────────
+    // Architecture pivoted from Cloud Functions to a Cloudflare Worker, so the
+    // audit row is written by the authenticated client right after the LLM
+    // call returns. This is best-effort; Phase 6 will harden it (e.g. by
+    // moving Firestore writes into the Worker via a service-account JWT).
+    //
+    // Rules: only staff can append, the doc must include their uid in
+    // createdBy, and audit rows are immutable + undeleteable.
+    match /ai_audit/{id} {
+      allow read:   if isAdmin();
+      allow create: if isStaff()
+                    && request.resource.data.createdBy == request.auth.uid
+                    && request.resource.data.keys().hasAll(['promptType', 'createdBy', 'createdAt']);
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}

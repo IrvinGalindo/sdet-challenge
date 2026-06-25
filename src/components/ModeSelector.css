@@ -1,0 +1,155 @@
+.mode-selector {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.ms-header {
+  text-align: center;
+  padding: 2rem 0 1rem;
+}
+
+.ms-title {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #3B82F6, #A855F7, #EC4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -1px;
+  margin-bottom: 0.75rem;
+}
+
+.ms-subtitle {
+  font-size: 16px;
+  color: var(--text-muted);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.ms-candidate-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ms-input {
+  width: 320px;
+  font-size: 15px;
+}
+
+.ms-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 900px) {
+  .ms-cards { grid-template-columns: 1fr; }
+}
+
+.ms-card {
+  position: relative;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 2rem 1.75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  box-shadow: var(--shadow-md);
+}
+
+.ms-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--card-color);
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.ms-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--card-color);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--card-color);
+}
+
+.ms-card:hover::before {
+  opacity: 1;
+}
+
+.ms-card-number {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.75rem;
+  font-size: 36px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: rgba(255,255,255,0.04);
+  line-height: 1;
+}
+
+.ms-card-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.ms-card-tag {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.ms-card-label {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-highlight);
+  margin: 0;
+}
+
+.ms-card-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.6;
+  flex: 1;
+  margin: 0;
+}
+
+.ms-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.ms-card-count {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.ms-card-arrow {
+  font-size: 20px;
+  font-weight: 700;
+  transition: transform 0.2s;
+}
+
+.ms-card:hover .ms-card-arrow {
+  transform: translateX(4px);
+}

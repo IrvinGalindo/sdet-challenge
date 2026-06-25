@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PORT=3001 npm start)",
+      "mcp__Claude_Preview__preview_start",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(npx kill-port *)",
+      "Bash(node scripts/seedInterviewQuestions.mjs)",
+      "Bash(firebase --version)",
+      "Bash(firebase projects:list)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X PATCH \"https://firestore.googleapis.com/v1/projects/sdet-challenge/databases/\\(default\\)/documents/settings/interviewQuestionsTest?key=AIzaSyChq8MpQJ5SF7IMi-WT348UiMY-jfOEw2M\" -H \"Content-Type: application/json\" -d '{\"fields\":{\"test\":{\"stringValue\":\"ping\"}}}')",
+      "Bash(git -C D:/Documents/Projects/React/sdet-challenge remote -v)",
+      "Bash(git -C D:/Documents/Projects/React/sdet-challenge log --oneline -5)",
+      "Bash(node -e ' *)",
+      "Bash(rm src/components/MicPermissionDialog.jsx)",
+      "Bash(node --check worker/src/index.js)"
+    ]
+  }
+}

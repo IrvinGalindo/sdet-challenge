@@ -1,0 +1,133 @@
+/* ── Backdrop ──────────────────────────────────────────────────────────────── */
+.cd-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  animation: cd-fade-in 0.15s ease;
+}
+
+@keyframes cd-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+.cd-panel {
+  background: var(--bg-card, #1e1e2e);
+  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border-radius: 14px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  padding: 2rem 2rem 1.75rem;
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  animation: cd-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes cd-slide-up {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+
+/* ── Icon ring ─────────────────────────────────────────────────────────────── */
+.cd-icon-ring {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 1.1rem;
+  flex-shrink: 0;
+}
+
+.cd-icon-ring--danger  { background: rgba(239, 68, 68, 0.12);  box-shadow: 0 0 0 1px rgba(239,68,68,0.25); }
+.cd-icon-ring--warning { background: rgba(245,158,11, 0.12);   box-shadow: 0 0 0 1px rgba(245,158,11,0.25); }
+.cd-icon-ring--info    { background: rgba(99,102,241, 0.12);   box-shadow: 0 0 0 1px rgba(99,102,241,0.25); }
+
+/* ── Text ──────────────────────────────────────────────────────────────────── */
+.cd-title {
+  margin: 0 0 0.6rem;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-highlight, #fff);
+  line-height: 1.3;
+}
+
+.cd-message {
+  margin: 0 0 0.75rem;
+  font-size: 13.5px;
+  color: var(--text-muted, rgba(255,255,255,0.55));
+  line-height: 1.6;
+}
+
+/* ── "Cannot be undone" note ───────────────────────────────────────────────── */
+.cd-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 1.4rem;
+  padding: 8px 14px;
+  background: rgba(239, 68, 68, 0.07);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--accent-danger, #ef4444);
+  font-weight: 600;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+}
+
+.cd-note-dot {
+  flex-shrink: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-danger, #ef4444);
+}
+
+/* ── Actions ───────────────────────────────────────────────────────────────── */
+.cd-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin-top: 0.25rem;
+}
+
+.cd-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: var(--font-ui, inherit);
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+}
+
+.cd-btn:hover  { opacity: 0.88; transform: translateY(-1px); }
+.cd-btn:active { transform: translateY(0); opacity: 1; }
+
+.cd-btn--ghost {
+  background: var(--bg-main, rgba(255,255,255,0.05));
+  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  color: var(--text-muted, rgba(255,255,255,0.55));
+}
+.cd-btn--ghost:hover { color: var(--text-highlight, #fff); border-color: rgba(255,255,255,0.2); }
+
+.cd-btn--danger  { background: var(--accent-danger, #ef4444);  color: #fff; }
+.cd-btn--warning { background: var(--accent-warning, #f59e0b); color: #fff; }
+.cd-btn--info    { background: var(--accent-primary, #6366f1); color: #fff; }

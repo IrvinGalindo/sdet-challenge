@@ -1,0 +1,169 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+:root {
+  /* ── Deep, Rich Dark Mode Palette ── */
+  --bg-main:    #030712; /* Extreme dark blue/black */
+  --bg-panel:   #0f172a; /* Slate 900 */
+  --bg-card:    #1e293b; /* Slate 800 */
+  --bg-elevated:#334155; /* Slate 700 */
+  --bg-glass:   rgba(15, 23, 42, 0.7);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-focus: #818cf8;
+
+  /* ── Typography ── */
+  --text-main:      #f8fafc; /* Slate 50 */
+  --text-muted:     #94a3b8; /* Slate 400 */
+  --text-highlight: #ffffff;
+
+  /* ── Vibrant Accents ── */
+  --accent-primary: #6366f1; /* Indigo 500 */
+  --accent-hover:   #818cf8; /* Indigo 400 */
+  --accent-success: #10b981; /* Emerald 500 */
+  --accent-danger:  #f43f5e; /* Rose 500 */
+  --accent-warning: #f59e0b; /* Amber 500 */
+  --accent-info:    #0ea5e9; /* Sky 500 */
+
+  /* ── Gradients ── */
+  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --gradient-success: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+  --gradient-danger:  linear-gradient(135deg, #f43f5e 0%, #fb923c 100%);
+
+  /* ── Fonts ── */
+  --font-ui:   'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Outfit', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ── Shadows & Radii ── */
+  --shadow-sm:   0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md:   0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg:   0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px 0 rgba(99, 102, 241, 0.3);
+  --shadow-glow-success: 0 0 20px 0 rgba(16, 185, 129, 0.3);
+  
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+}
+
+html { scroll-behavior: smooth; }
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-main);
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.08), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.08), transparent 25%),
+    radial-gradient(circle at 50% 100%, rgba(16, 185, 129, 0.05), transparent 40%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+button {
+  font-family: var(--font-ui);
+}
+
+/* Accessible focus ring */
+:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+input::placeholder,
+textarea::placeholder { color: var(--text-muted); opacity: 0.6; }
+
+select option { background: var(--bg-card); color: var(--text-main); }
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Base button animations */
+button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+button:active {
+  transform: scale(0.97);
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Global Checkbox ─────────────────────────────────────────── */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid var(--border-color);
+  background: transparent;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+  vertical-align: middle;
+  position: relative;
+}
+
+input[type="checkbox"]:hover:not(:disabled) {
+  border-color: var(--accent-primary);
+}
+
+input[type="checkbox"]:checked {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.45);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  display: block;
+  width: 10px;
+  height: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 8'%3E%3Cpath d='M1 3.5L3.5 6.5L9 1' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: contain;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}

@@ -1,0 +1,21 @@
+name = "sdet-ai-worker"
+main = "src/index.js"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+# ── Public, non-secret config ──────────────────────────────────────────────
+# Replace `sdet-challenge` if your Firebase projectId is different.
+# Set ALLOWED_ORIGINS to a comma-separated list (no spaces) of origins your
+# React app is served from — local dev + production.
+[vars]
+FIREBASE_PROJECT_ID  = "sdet-challenge"
+ALLOWED_ORIGINS      = "http://localhost:3000,http://localhost:60237,https://sdet-challenge.firebaseapp.com,https://sdet-challenge.web.app"
+OPENROUTER_MODEL_PARSE    = "anthropic/claude-sonnet-4.5"
+OPENROUTER_MODEL_GENERATE = "anthropic/claude-sonnet-4.5"
+OPENROUTER_MODEL_LIVE     = "openai/gpt-4o-mini"
+OPENROUTER_MODEL_EVALUATE = "anthropic/claude-sonnet-4.5"
+OPENROUTER_MODEL_BIAS     = "anthropic/claude-sonnet-4.5"
+
+# ── Secrets ────────────────────────────────────────────────────────────────
+# Set with: wrangler secret put OPENROUTER_KEY
+# Never write the key into this file.

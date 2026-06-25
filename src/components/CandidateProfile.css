@@ -1,0 +1,276 @@
+/* ── Loading ───────────────────────────────────────────────── */
+.cp-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  gap: 12px;
+  color: var(--text-muted);
+  font-size: 15px;
+}
+
+.cp-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: cpSpin 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes cpSpin { to { transform: rotate(360deg); } }
+
+/* ── Back button ───────────────────────────────────────────── */
+.cp-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: var(--font-ui);
+  margin-bottom: 1.5rem;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.cp-back-btn:hover {
+  color: var(--text-highlight);
+  border-color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+}
+
+/* ── Score radio buttons ───────────────────────────────────── */
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.score-row-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-right: 4px;
+}
+
+.score-radio {
+  display: none;
+}
+
+.score-radio-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.03);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.score-radio-btn:hover {
+  border-color: rgba(255,255,255,0.2);
+  color: var(--text-highlight);
+  background: rgba(255,255,255,0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.score-radio-btn.active-primary {
+  background: linear-gradient(135deg, var(--accent-primary), #8B5CF6);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(59,130,246,0.4);
+  transform: scale(1.05) translateY(-2px);
+}
+
+.score-radio-btn.active-warning {
+  background: linear-gradient(135deg, var(--accent-warning), #F97316);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+  transform: scale(1.05) translateY(-2px);
+}
+
+.score-pts-badge {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.score-pts-badge.primary {
+  color: var(--accent-success);
+  background: rgba(16,185,129,0.1);
+}
+
+.score-pts-badge.warning {
+  color: var(--accent-warning);
+  background: rgba(245,158,11,0.1);
+}
+
+/* ── Section card ──────────────────────────────────────────── */
+.cp-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.75rem;
+}
+
+.cp-card-title {
+  margin: 0 0 1.5rem;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* ── Save button ───────────────────────────────────────────── */
+.cp-save-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent-primary);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: var(--font-ui);
+  transition: background 0.2s, transform 0.15s;
+  box-shadow: 0 4px 12px rgba(59,130,246,0.25);
+}
+.cp-save-btn:hover:not(:disabled) {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+.cp-save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Recommendation box ────────────────────────────────────── */
+.cp-recommendation {
+  text-align: center;
+  padding: 16px;
+  background: rgba(0,0,0,0.2);
+  border-radius: var(--radius-sm);
+  margin-bottom: 16px;
+}
+
+.cp-recommendation-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.cp-recommendation-value {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.cp-recommendation-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ── Reference block ───────────────────────────────────────── */
+.cp-reference {
+  background: rgba(0,0,0,0.2);
+  border-left: 3px solid var(--accent-warning);
+  padding: 10px 14px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+
+.cp-reference strong { color: var(--text-main); }
+
+/* ── Toast ─────────────────────────────────────────────────── */
+.cp-toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  font-size: 14px;
+  animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.cp-toast.success { background: var(--accent-success); }
+.cp-toast.error   { background: var(--accent-danger); }
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── Layout & Responsiveness ──────────────────────────────── */
+.cp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  gap: 1rem;
+}
+
+.cp-layout {
+  display: flex;
+  gap: 2rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .cp-header {
+    flex-direction: column;
+  }
+  
+  .cp-layout {
+    flex-direction: column;
+  }
+  
+  .cp-layout > div {
+    width: 100%;
+    position: static !important; /* disable sticky on mobile */
+  }
+  
+  .score-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .score-pts-badge {
+    margin-left: 0;
+    margin-top: 8px;
+  }
+}

@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+yarn.lock
+
+# Environment
+.env
+.env.development
+.env.production
+.env.local
+
+# Build
+dist/
+build/
+.next/
+
+# Vercel
+.vercel/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Coverage
+coverage/
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+node
