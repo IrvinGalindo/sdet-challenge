@@ -17,7 +17,11 @@ export function useTranscription({ enabled, onFinalChunk }) {
   // 'unknown' | 'prompt' | 'granted' | 'denied'
   const [permissionState, setPermissionState] = useState('unknown');
 
-  // Keep enabledRef in sync so the auto-restart in `onend` can read latest.
+  const onFinalChunkRef = useRef(onFinalChunk);
+
+  // Keep callback and enabled states in sync so they can be read dynamically
+  // without triggering effect restarts.
+  useEffect(() => { onFinalChunkRef.current = onFinalChunk; }, [onFinalChunk]);
   useEffect(() => { enabledRef.current = enabled; }, [enabled]);
 
   // Track mic permission state via the Permissions API where it's supported.
@@ -62,15 +66,21 @@ export function useTranscription({ enabled, onFinalChunk }) {
     recognition.interimResults = false;
     recognition.lang           = 'en-US';
 
-    recognition.onstart = () => setListening(true);
+    recognition.onstart = () => {
+      console.log("[Speech Engine] Speech recognition started. Listening...");
+      setListening(true);
+    };
     recognition.onend   = () => {
+      console.log("[Speech Engine] Speech recognition stopped.");
       setListening(false);
       // Auto-restart if we're still supposed to be running.
       if (!stopped && enabledRef.current && recognitionRef.current === recognition) {
-        try { recognition.start(); } catch { /* already starting */ }
+        console.log("[Speech Engine] Auto-restarting engine...");
+        try { recognition.start(); } catch (e) { console.warn("[Speech Engine] Auto-restart failed:", e.message); }
       }
     };
     recognition.onerror = (e) => {
+      console.error("[Speech Engine] Error event fired:", e.error);
       if (e.error === 'no-speech' || e.error === 'aborted') {
         // Benign — onend will restart.
         return;
@@ -82,24 +92,33 @@ export function useTranscription({ enabled, onFinalChunk }) {
       }
     };
     recognition.onresult = (event) => {
+      console.log("[Speech Engine] onresult event fired.", event.results);
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           const text = (result[0]?.transcript || '').trim();
-          if (text) onFinalChunk(text, result[0]?.confidence ?? null);
+          console.log(`[Speech Engine] Result is final: "${text}"`);
+          if (text && onFinalChunkRef.current) {
+            onFinalChunkRef.current(text, result[0]?.confidence ?? null);
+          }
+        } else {
+          console.log(`[Speech Engine] Interim result: "${result[0]?.transcript}"`);
         }
       }
     };
 
     recognitionRef.current = recognition;
-    try { recognition.start(); } catch (e) { setError(e.message); }
+    console.log("[Speech Engine] Initializing and starting SpeechRecognition instance...");
+    console.log("[Speech Hook] useEffect initialized. enabled:", enabled);
+    try { recognition.start(); } catch (e) { console.error("[Speech Engine] Start error:", e.message); setError(e.message); }
 
     return () => {
+      console.log("[Speech Hook] useEffect cleaning up...");
       stopped = true;
       recognitionRef.current = null;
       try { recognition.stop(); } catch {}
     };
-  }, [enabled, onFinalChunk]);
+  }, [enabled]);
 
   // Trigger the browser's native permission prompt. Works while state is
   // 'prompt'; if state is already 'denied' the browser won't reshow the

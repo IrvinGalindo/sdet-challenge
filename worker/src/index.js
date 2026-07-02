@@ -209,6 +209,8 @@ export default {
         result = await handleGenerateQuestionBank(body, env);
       } else if (url.pathname === '/liveSuggestion') {
         result = await handleLiveSuggestion(body, env);
+      } else if (url.pathname === '/customPrompt') {
+        result = await handleCustomPrompt(body, env);
       } else if (url.pathname === '/evaluateSession') {
         result = await handleEvaluateSession(body, env);
       } else if (url.pathname === '/biasAudit') {
@@ -229,17 +231,17 @@ export default {
 
 async function handleParseJD(body, env) {
   const jdText = (body?.jdText || '').toString().trim();
-  if (!jdText)              throw httpError(400, 'jdText is required');
+  if (!jdText) throw httpError(400, 'jdText is required');
   if (jdText.length > 50_000) throw httpError(400, 'jdText too long (>50k chars)');
 
   const { content, parsed, tokensUsed } = await chat({
-    apiKey:    env.OPENROUTER_KEY,
-    model:     env.OPENROUTER_MODEL_PARSE,
-    jsonMode:  true,
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_PARSE,
+    jsonMode: true,
     maxTokens: 1500,
     messages: [
       { role: 'system', content: PARSE_JD_SYSTEM },
-      { role: 'user',   content: `Parse this JD:\n\n${jdText}` },
+      { role: 'user', content: `Parse this JD:\n\n${jdText}` },
     ],
   });
 
@@ -266,14 +268,14 @@ Summary: ${pos.summary || ''}
 Generate the question bank.`;
 
   const { parsed, content, tokensUsed } = await chat({
-    apiKey:    env.OPENROUTER_KEY,
-    model:     env.OPENROUTER_MODEL_GENERATE,
-    jsonMode:  true,
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_GENERATE,
+    jsonMode: true,
     maxTokens: 8000,
     timeoutMs: 180_000, // 3 min — generating ~12 questions + ~5 challenges with rubrics is slow
     messages: [
       { role: 'system', content: GENERATE_SYSTEM },
-      { role: 'user',   content: userPrompt },
+      { role: 'user', content: userPrompt },
     ],
   });
 
@@ -300,14 +302,14 @@ async function handleBiasAudit(body, env) {
   const reportText = JSON.stringify(cleanReport, null, 2);
 
   const { parsed, content, tokensUsed } = await chat({
-    apiKey:    env.OPENROUTER_KEY,
-    model:     env.OPENROUTER_MODEL_BIAS || 'anthropic/claude-sonnet-4.5',
-    jsonMode:  true,
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_BIAS || 'anthropic/claude-sonnet-4.5',
+    jsonMode: true,
     maxTokens: 2000,
     timeoutMs: 90_000,
     messages: [
       { role: 'system', content: BIAS_AUDIT_SYSTEM },
-      { role: 'user',   content: `Audit this candidate evaluation report:\n\n${reportText}` },
+      { role: 'user', content: `Audit this candidate evaluation report:\n\n${reportText}` },
     ],
   });
 
@@ -317,26 +319,26 @@ async function handleBiasAudit(body, env) {
     throw err;
   }
   return {
-    flags:   parsed.flags,
+    flags: parsed.flags,
     overall: parsed.overall || 'clean',
     _tokensUsed: tokensUsed,
-    _model:  env.OPENROUTER_MODEL_BIAS || 'anthropic/claude-sonnet-4.5',
+    _model: env.OPENROUTER_MODEL_BIAS || 'anthropic/claude-sonnet-4.5',
   };
 }
 
 async function handleEvaluateSession(body, env) {
   const { position, candidateName, transcript, answers, challenges } = body || {};
-  if (!position?.title)            throw httpError(400, 'position is required');
-  if (!Array.isArray(challenges))  throw httpError(400, 'challenges array required');
+  if (!position?.title) throw httpError(400, 'position is required');
+  if (!Array.isArray(challenges)) throw httpError(400, 'challenges array required');
 
   // ── Transcript: keep the most recent 120 chunks, max 400 chars each ──────
   // A full-interview transcript can easily exceed 50k tokens. We sample the
   // tail because it usually contains the most substantive technical discussion.
-  const MAX_CHUNKS     = 120;
+  const MAX_CHUNKS = 120;
   const MAX_CHUNK_CHARS = 400;
   const rawChunks = (Array.isArray(transcript) ? transcript : []).filter(t => t && t.text);
   const trimmedChunks = rawChunks.slice(-MAX_CHUNKS);
-  const omittedCount  = rawChunks.length - trimmedChunks.length;
+  const omittedCount = rawChunks.length - trimmedChunks.length;
 
   const transcriptLines = trimmedChunks.map(t => {
     const text = t.text.length > MAX_CHUNK_CHARS
@@ -389,13 +391,13 @@ async function handleEvaluateSession(body, env) {
         forensicsLine = `\nFORENSICS: ${t}, ${c1}${cn ? ', ' + cn : ''}`;
       } else {
         const parts = [];
-        if (f.secondsViewing     != null) parts.push(`${f.secondsViewing}s viewing`);
+        if (f.secondsViewing != null) parts.push(`${f.secondsViewing}s viewing`);
         if (f.secondsToFirstEdit != null) parts.push(`${f.secondsToFirstEdit}s to first edit`);
-        if (f.secondsTyping      != null) parts.push(`${f.secondsTyping}s typing`);
-        if (f.finalChars         != null) parts.push(`${f.finalChars} chars final`);
-        if (f.pasteCount         != null) parts.push(`${f.pasteCount} paste event(s)`);
-        if (f.pastedChars        != null) parts.push(`${f.pastedChars} chars pasted`);
-        if (f.pasteRatio         != null) parts.push(`pasteRatio=${(f.pasteRatio * 100).toFixed(0)}%`);
+        if (f.secondsTyping != null) parts.push(`${f.secondsTyping}s typing`);
+        if (f.finalChars != null) parts.push(`${f.finalChars} chars final`);
+        if (f.pasteCount != null) parts.push(`${f.pasteCount} paste event(s)`);
+        if (f.pastedChars != null) parts.push(`${f.pastedChars} chars pasted`);
+        if (f.pasteRatio != null) parts.push(`pasteRatio=${(f.pasteRatio * 100).toFixed(0)}%`);
         if (f.secondsTyping && f.finalChars) {
           const cps = f.finalChars / Math.max(1, f.secondsTyping);
           parts.push(`~${cps.toFixed(1)} chars/sec`);
@@ -433,8 +435,8 @@ Produce the hiring evaluation report now.`;
   if (userPrompt.length > MAX_PROMPT_TOTAL) {
     // Hard truncate — cut the transcript section, leave challenges intact.
     const excess = userPrompt.length - MAX_PROMPT_TOTAL;
-    const tIdx   = userPrompt.indexOf('== INTERVIEW TRANSCRIPT ==');
-    const cIdx   = userPrompt.indexOf('== CHALLENGE SUBMISSIONS ==');
+    const tIdx = userPrompt.indexOf('== INTERVIEW TRANSCRIPT ==');
+    const cIdx = userPrompt.indexOf('== CHALLENGE SUBMISSIONS ==');
     if (tIdx !== -1 && cIdx !== -1) {
       const maxTranscriptLen = (cIdx - tIdx) - excess - 60; // 60-char safety margin
       const truncTx = maxTranscriptLen > 0
@@ -447,14 +449,14 @@ Produce the hiring evaluation report now.`;
   }
 
   const { parsed, content, tokensUsed } = await chat({
-    apiKey:    env.OPENROUTER_KEY,
-    model:     env.OPENROUTER_MODEL_EVALUATE || 'anthropic/claude-sonnet-4.5',
-    jsonMode:  true,
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_EVALUATE || 'anthropic/claude-sonnet-4.5',
+    jsonMode: true,
     maxTokens: 8000,
     timeoutMs: 240_000,
     messages: [
       { role: 'system', content: EVALUATE_SYSTEM },
-      { role: 'user',   content: userPrompt },
+      { role: 'user', content: userPrompt },
     ],
   });
 
@@ -469,7 +471,7 @@ Produce the hiring evaluation report now.`;
 
 async function handleLiveSuggestion(body, env) {
   const { position, transcript, askedTopics } = body || {};
-  if (!position?.title)        throw httpError(400, 'position is required');
+  if (!position?.title) throw httpError(400, 'position is required');
   if (!Array.isArray(transcript) || transcript.length === 0) {
     throw httpError(400, 'transcript array is required and must be non-empty');
   }
@@ -492,13 +494,13 @@ ${lines}
 Suggest the next probe.`;
 
   const { parsed, content, tokensUsed } = await chat({
-    apiKey:    env.OPENROUTER_KEY,
-    model:     env.OPENROUTER_MODEL_LIVE || 'openai/gpt-4o-mini',
-    jsonMode:  true,
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_LIVE || 'openai/gpt-4o-mini',
+    jsonMode: true,
     maxTokens: 600,
     messages: [
       { role: 'system', content: LIVE_SUGGESTION_SYSTEM },
-      { role: 'user',   content: userPrompt },
+      { role: 'user', content: userPrompt },
     ],
   });
 
@@ -507,7 +509,60 @@ Suggest the next probe.`;
     err.detail = content.slice(0, 500);
     throw err;
   }
-  return { ...parsed, _tokensUsed: tokensUsed, _model: env.OPENROUTER_MODEL_LIVE || 'openai/gpt-4o-mini' };
+  return { ...parsed, _tokensUsed: tokensUsed, _model: env.OPENROUTER_MODEL_LIVE || 'anthropic/claude-haiku-3.5' };
+}
+
+
+const CUSTOM_PROMPT_SYSTEM = `You are an AI co-pilot assisting a live technical interviewer.
+The interviewer may ask you anything — suggest a follow-up, evaluate the candidate's last answer, generate a hard question, flag a concern, or any other request.
+
+You always have access to the recent transcript and position context.
+Be concise, specific, and actionable. Plain text response — no markdown, no headers, no bullet lists unless they genuinely help readability.`;
+
+async function handleCustomPrompt(body, env) {
+  const { question, transcript, position } = body || {};
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    throw httpError(400, 'question is required');
+  }
+
+  const recentLines = Array.isArray(transcript)
+    ? transcript
+      .filter(t => t && t.text)
+      .slice(-40)
+      .map(t => `[${t.speaker || 'unknown'}]: ${t.text}`)
+      .join('\n')
+    : '';
+
+  const positionCtx = position
+    ? `Position: ${position.title || ''} — ${position.seniority || ''}\nRequired skills: ${(position.techStack || []).join(', ') || 'n/a'}`
+    : '';
+
+  const userPrompt = [
+    positionCtx,
+    recentLines ? `Recent conversation:\n${recentLines}` : '',
+    `Interviewer asks: ${question.trim()}`,
+  ].filter(Boolean).join('\n\n');
+
+  const { content, tokensUsed } = await chat({
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_CUSTOM || 'anthropic/claude-haiku-3.5',
+    jsonMode: false,
+    maxTokens: 500,
+    messages: [
+      { role: 'system', content: CUSTOM_PROMPT_SYSTEM },
+      { role: 'user', content: userPrompt },
+    ],
+  });
+
+  if (!content || !content.trim()) {
+    throw httpError(502, 'Model returned an empty response');
+  }
+
+  return {
+    answer: content.trim(),
+    _tokensUsed: tokensUsed,
+    _model: env.OPENROUTER_MODEL_CUSTOM || 'anthropic/claude-haiku-3.5',
+  };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -516,11 +571,11 @@ function corsHeaders(origin, allowedOriginsCsv) {
   const allowed = (allowedOriginsCsv || '').split(',').map(s => s.trim()).filter(Boolean);
   const allowOrigin = allowed.includes(origin) ? origin : (allowed[0] || '*');
   return {
-    'Access-Control-Allow-Origin':  allowOrigin,
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-    'Access-Control-Max-Age':       '86400',
-    'Vary':                         'Origin',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
   };
 }
 
@@ -536,3 +591,4 @@ function httpError(status, message) {
   err.statusCode = status;
   return err;
 }
+

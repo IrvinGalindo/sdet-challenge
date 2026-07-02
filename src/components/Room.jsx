@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { auth, db, callLiveSuggestion, callEvaluateSession, callBiasAudit } from '../firebase';
+import { auth, db, callLiveSuggestion, callCustomPrompt, callEvaluateSession, callBiasAudit } from '../firebase';
 import {
   doc, onSnapshot, updateDoc, getDoc, collection, addDoc,
   query, orderBy, limit, serverTimestamp,
@@ -48,6 +48,8 @@ export default function Room() {
   const [position, setPosition] = useState(null);
   const [transcriptionEnabled, setTranscriptionEnabled] = useState(true);
   const [suggestionBusy, setSuggestionBusy] = useState(false);
+  const [customBusy, setCustomBusy] = useState(false);
+  const [customQuestion, setCustomQuestion] = useState('');
   const [micGateDismissed, setMicGateDismissed] = useState(false);
   const [questions, setQuestions] = useState([]);  // position interview questions
   const { dialogProps, openConfirm } = useConfirmDialog();
@@ -205,6 +207,23 @@ export default function Room() {
     return () => unsub();
   }, [sessionId, role]);
 
+  // Generate deterministic free room URLs using MiroTalk SFU (with params to bypass invite modals & name screens)
+  const cleanSessionId = useMemo(() => {
+    if (!sessionId) return '';
+    return sessionId.slice(0, 32).replace(/[^a-zA-Z0-9-]/g, '-');
+  }, [sessionId]);
+
+  const interviewerVideoUrl = useMemo(() => {
+    if (!cleanSessionId) return '';
+    return `https://sfu.mirotalk.com/join?room=sdet-interview-${cleanSessionId}&notify=0&name=Interviewer`;
+  }, [cleanSessionId]);
+
+  const candidateVideoUrl = useMemo(() => {
+    if (!cleanSessionId) return '';
+    const name = session?.candidateName || 'Candidate';
+    return `https://sfu.mirotalk.com/join?room=sdet-interview-${cleanSessionId}&notify=0&name=${encodeURIComponent(name)}`;
+  }, [cleanSessionId, session?.candidateName]);
+
   // ── Listen to answers ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!sessionId) return;
@@ -235,26 +254,31 @@ export default function Room() {
   const speakerTag = role === 'interviewer' ? 'interviewer' : 'candidate';
   const handleFinalChunk = useCallback(async (text) => {
     if (!sessionId || !text) return;
+    console.log(`[Speech Debug] Captured final chunk: "${text}" (Speaker: ${speakerTag})`);
     try {
-      await addDoc(collection(db, 'sessions', sessionId, 'transcript_chunks'), {
+      console.log(`[Speech Debug] Attempting to write chunk to Firestore...`);
+      const docRef = await addDoc(collection(db, 'sessions', sessionId, 'transcript_chunks'), {
         speaker:   speakerTag,
         authorUid: user?.uid || null,
         text,
         createdAt: serverTimestamp(),
       });
+      console.log(`[Speech Debug] Chunk saved successfully. Doc ID: ${docRef.id}`);
     } catch (e) {
-      console.warn('Transcript write failed:', e.code || e.message);
+      console.error('[Speech Debug] Firestore write failed:', e.code, e.message);
     }
   }, [sessionId, speakerTag, user]);
 
   const transcribe = useTranscription({
-    enabled: !!session && session.status !== 'completed' && transcriptionEnabled && micGateDismissed,
+    enabled: !!session && session.status !== 'completed' && micGateDismissed,
     onFinalChunk: handleFinalChunk,
   });
 
   // Auto-dismiss the gate if permission is already granted from a previous visit.
   useEffect(() => {
+    console.log(`[Speech Debug] Mic permission state is: ${transcribe.permissionState}`);
     if (transcribe.permissionState === 'granted') {
+      console.log(`[Speech Debug] Permission granted. Enabling transcription.`);
       setMicGateDismissed(true);
     }
   }, [transcribe.permissionState]);
@@ -312,6 +336,72 @@ export default function Room() {
     const id = setInterval(tick, SUGGESTION_INTERVAL_MS);
     return () => { cancelled = true; clearInterval(id); };
   }, [role, position, sessionId, session?.status, transcript, challenges]);
+
+  // ── On-demand AI suggestion (interviewer clicks "Ask AI now") ─────────────
+  const handleTriggerSuggestion = useCallback(async () => {
+    if (suggestionBusy || !position || !sessionId || transcript.length === 0) return;
+    setSuggestionBusy(true);
+    try {
+      const askedTopics = challenges.map(c => c.title).filter(Boolean);
+      const recent = transcript.slice(-60).map(c => ({ speaker: c.speaker, text: c.text }));
+      const result = await callLiveSuggestion({
+        position: {
+          title: position.title, seniority: position.seniority,
+          techStack: position.techStack, softSkills: position.softSkills,
+        },
+        transcript: recent,
+        askedTopics,
+      });
+      await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
+        suggestion:  result.suggestion || '',
+        topic:       result.topic || '',
+        priority:    result.priority || 'low',
+        reasoning:   result.reasoning || '',
+        model:       result._model || null,
+        tokensUsed:  result._tokensUsed || 0,
+        isCustom:    false,
+        createdAt:   serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('On-demand suggestion failed:', e.message || e);
+    } finally {
+      setSuggestionBusy(false);
+    }
+  }, [suggestionBusy, position, sessionId, transcript, challenges]);
+
+  // ── Custom AI prompt (interviewer asks a free-text question) ──────────────
+  const handleCustomPrompt = useCallback(async (e) => {
+    e.preventDefault();
+    const q = customQuestion.trim();
+    if (!q || customBusy || !sessionId) return;
+    setCustomBusy(true);
+    setCustomQuestion('');
+    try {
+      const recent = transcript.slice(-40).map(c => ({ speaker: c.speaker, text: c.text }));
+      const result = await callCustomPrompt({
+        question: q,
+        transcript: recent,
+        position: position
+          ? { title: position.title, seniority: position.seniority, techStack: position.techStack }
+          : null,
+      });
+      await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
+        suggestion:  result.answer || '',
+        topic:       'Custom prompt',
+        priority:    'low',
+        reasoning:   '',
+        question:    q,
+        model:       result._model || null,
+        tokensUsed:  result._tokensUsed || 0,
+        isCustom:    true,
+        createdAt:   serverTimestamp(),
+      });
+    } catch (e) {
+      console.warn('Custom prompt failed:', e.message || e);
+    } finally {
+      setCustomBusy(false);
+    }
+  }, [customQuestion, customBusy, sessionId, transcript, position]);
 
   // ── Phase control (interviewer only) ─────────────────────────────────────
   // phase: 'intro' | 'questions' | 'challenges' — stored on session doc so candidate reacts in real-time.
@@ -621,73 +711,102 @@ export default function Room() {
         </div>
       </header>
 
-      <div style={{ ...layout, gridTemplateColumns: isInterviewer ? 'minmax(0,1fr) 320px' : 'minmax(0,1fr)' }}>
+      <div style={{ ...layout, gridTemplateColumns: isCandidate ? '1fr' : 'minmax(0,1.2fr) 580px', maxWidth: '100%', gap: 16 }}>
         {/* Main: candidate workspace OR interviewer view */}
         <main style={mainPanel}>
-          {/* Transcription banner — shown to both while live */}
-          {!isCompleted && (
-            <MicBanner
-              transcribe={transcribe}
-              transcriptionEnabled={transcriptionEnabled}
-              onToggleMute={() => setTranscriptionEnabled(v => !v)}
-            />
-          )}
+
 
           {isCandidate && (
-            <>
-              {isCompleted ? (
-                <div style={{ background: 'rgba(148,163,184,0.1)', border: '1px solid var(--border-color)', borderRadius: 8, padding: 24, textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-                  <strong>{t('room.interviewEnded')}</strong>
-                  <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 6 }}>{t('room.closeTab')}</div>
-                </div>
-              ) : isIntroPhase ? (
-                <div style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 8, padding: 32, textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>👋</div>
-                  <h2 style={{ margin: '0 0 8px', color: 'var(--text-highlight)' }}>{t('room.welcome')}</h2>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 15, margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                    {t('room.interviewerBeginShortly')}
-                  </p>
-                </div>
-              ) : isQuestionsPhase ? (
-                /* ── PHASE 1: Q&A ──────────────────────────────────────────── */
-                <CandidateQAPhase
-                  questions={questions}
-                  currentQIdx={currentQIdx}
-                  transcript={transcript}
-                />
-              ) : (
-                /* ── PHASE 2: Challenges ──────────────────────────────────── */
-                <>
-                  <h2 style={{ margin: '0 0 12px' }}>{t('room.yourChallenges')}</h2>
-                  <ChallengeRunner
-                    challenges={orderedChallenges}
-                    answers={answers}
-                    onAnswer={handleAnswer}
+            <div style={candidateRoomLayout}>
+              {/* Video Call (above workspace, only shown while live) */}
+              {!isCompleted && (
+                <div style={candidateVideoCol}>
+                  <CandidateVideoPanel
+                    videoRoomUrl={candidateVideoUrl}
+                    candidateName={session.candidateName || 'Candidate'}
                   />
-                </>
+                </div>
               )}
-            </>
+
+              {/* Workspace (below video) */}
+              <div style={{ minWidth: 0, flex: 1 }}>
+                {isCompleted ? (
+                  <div style={{ background: 'rgba(148,163,184,0.1)', border: '1px solid var(--border-color)', borderRadius: 12, padding: 36, textAlign: 'center' }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                    <strong style={{ fontSize: 20 }}>{t('room.interviewEnded')}</strong>
+                    <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8 }}>{t('room.closeTab')}</div>
+                  </div>
+                ) : isIntroPhase ? (
+                  <div style={{ background: 'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(6,182,212,0.05))', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 36, textAlign: 'center' }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>👋</div>
+                    <h2 style={{ margin: '0 0 10px', color: 'var(--text-highlight)' }}>{t('room.welcome')}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 15, margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
+                      {t('room.interviewerBeginShortly')}
+                    </p>
+                  </div>
+                ) : isQuestionsPhase ? (
+                  <CandidateQAPhase
+                    questions={questions}
+                    currentQIdx={currentQIdx}
+                    transcript={transcript}
+                  />
+                ) : (
+                  <>
+                    <h2 style={{ margin: '0 0 12px' }}>{t('room.yourChallenges')}</h2>
+                    <ChallengeRunner
+                      challenges={orderedChallenges}
+                      answers={answers}
+                      onAnswer={handleAnswer}
+                    />
+                  </>
+                )}
+              </div>
+            </div>
           )}
 
           {isInterviewer && (
             <>
               {/* ── Interview Script ──────────────────────────────────────── */}
               {isIntroPhase ? (
-                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 8, padding: 24, marginBottom: 24 }}>
-                  <h2 style={{ margin: '0 0 12px', color: 'var(--text-highlight)' }}>{t('room.introGreeting')}</h2>
-                  <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px', lineHeight: 1.6 }}>
-                    {t('room.introGreetingDesc')}
-                  </p>
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(6,182,212,0.05))',
+                  border: '1px solid rgba(99,102,241,0.25)',
+                  borderRadius: 14, padding: 32, marginBottom: 24,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
+                    <div style={{
+                      width: 52, height: 52, borderRadius: 14,
+                      background: 'rgba(99,102,241,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 26, flexShrink: 0,
+                    }}>🎙️</div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: 4 }}>SESSION READY</div>
+                      <h2 style={{ margin: '0 0 6px', color: 'var(--text-highlight)', fontSize: 20 }}>{t('room.introGreeting')}</h2>
+                      <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
+                        {t('room.introGreetingDesc')}
+                      </p>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
+                    <div style={infoChip}>👤 {session.candidateName}</div>
+                    <div style={infoChip}>💼 {session.positionTitle}</div>
+                    {session.candidateEmail && <div style={infoChip}>✉️ {session.candidateEmail}</div>}
+                  </div>
                   <button
                     onClick={handleStartQuestions}
                     style={{
-                      padding: '10px 20px', background: 'var(--accent-primary)',
-                      color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
-                      fontSize: 14
+                      padding: '12px 28px',
+                      background: 'linear-gradient(135deg, var(--accent-primary), #818cf8)',
+                      color: '#fff', border: 'none', borderRadius: 10,
+                      fontWeight: 700, cursor: 'pointer', fontSize: 15,
+                      boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
                     }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(99,102,241,0.5)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.4)'; }}
                   >
-                    {t('room.startInterviewQuestionsBtn')}
+                    {t('room.startInterviewQuestionsBtn')} →
                   </button>
                 </div>
               ) : questions.length > 0 && (
@@ -703,46 +822,75 @@ export default function Room() {
               )}
 
               {/* ── Candidate challenge progress ──────────────────────────── */}
-              <h2 style={{ margin: '0 0 8px' }}>{t('room.candidateProgress')}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 8px' }}>
+                <h2 style={{ margin: 0 }}>{t('room.candidateProgress')}</h2>
+                {orderedChallenges.length > 0 && (
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                    {Object.keys(answers).length}/{orderedChallenges.length} submitted
+                  </span>
+                )}
+              </div>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0, marginBottom: 16 }}>
                 {t('room.candidateProgressDesc')}
               </p>
               {orderedChallenges.length === 0 ? (
-                <div style={{ color: 'var(--text-muted)' }}>{t('room.noChallengesInPosition')}</div>
+                <div style={{ color: 'var(--text-muted)', background: 'var(--bg-card)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 13, textAlign: 'center' }}>{t('room.noChallengesInPosition')}</div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {orderedChallenges.map((c, i) => {
                     const ans = answers[c.id];
+                    const kindLabel = c.kind === 'mcq' ? 'MCQ' : c.kind === 'code' ? 'CODE' : 'OPEN';
+                    const kindColor = c.kind === 'mcq' ? 'var(--accent-info)' : c.kind === 'code' ? '#a78bfa' : 'var(--accent-warning)';
                     return (
-                      <div key={c.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 8, padding: 14 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                          <strong style={{ fontSize: 14 }}>{i + 1}. {c.title}</strong>
-                          <span style={{ fontSize: 11, color: ans ? 'var(--accent-success)' : 'var(--text-muted)' }}>
-                            {ans ? t('room.submitted') : t('room.pending')}
+                      <div key={c.id} style={{
+                        background: ans ? 'rgba(16,185,129,0.04)' : 'var(--bg-card)',
+                        border: `1px solid ${ans ? 'rgba(16,185,129,0.25)' : 'var(--border-color)'}`,
+                        borderRadius: 10, padding: '12px 16px',
+                        transition: 'border-color 0.3s',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: '2px 6px',
+                              borderRadius: 4, background: `${kindColor}22`, color: kindColor,
+                            }}>{kindLabel}</span>
+                            <strong style={{ fontSize: 13 }}>{i + 1}. {c.title}</strong>
+                          </div>
+                          <span style={{
+                            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
+                            background: ans ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.1)',
+                            color: ans ? 'var(--accent-success)' : 'var(--text-muted)',
+                          }}>
+                            {ans ? '✓ Submitted' : '⏳ Pending'}
                           </span>
                         </div>
-                        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: 8 }}>{c.prompt}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: ans ? 10 : 0 }}>{c.prompt}</div>
                         {ans && (
-                          <div style={{ background: 'rgba(0,0,0,0.25)', borderLeft: '3px solid var(--accent-primary)', borderRadius: '0 4px 4px 0', padding: '8px 12px', fontSize: 13 }}>
-                            {ans.kind === 'mcq' && <span><strong>{t('room.selected')}</strong> {ans.selectedOption} {ans.isCorrect ? '✓' : '✗'}</span>}
-                            {ans.kind === 'open' && <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit' }}>{ans.text}</pre>}
+                          <div style={{ background: 'rgba(0,0,0,0.3)', borderLeft: '3px solid var(--accent-primary)', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 13 }}>
+                            {ans.kind === 'mcq' && (
+                              <span>
+                                <strong style={{ color: 'var(--text-muted)' }}>Selected: </strong>
+                                {ans.selectedOption}{' '}
+                                <span style={{ color: ans.isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 700 }}>
+                                  {ans.isCorrect ? '✔ Correct' : '✘ Incorrect'}
+                                </span>
+                              </span>
+                            )}
+                            {ans.kind === 'open' && (
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontFamily: 'inherit', fontSize: 12, lineHeight: 1.6 }}>{ans.text}</pre>
+                            )}
                             {ans.kind === 'code' && (
-                              <div style={{ height: 280, border: '1px solid var(--border-color)', borderRadius: 4, overflow: 'hidden' }}>
+                              <div style={{ height: 240, border: '1px solid var(--border-color)', borderRadius: 6, overflow: 'hidden', marginTop: 6 }}>
                                 <Editor
-                                  height="280px"
+                                  height="240px"
                                   language={ans.language || c.language || 'javascript'}
                                   value={ans.text}
                                   theme="vs-dark"
                                   options={{
-                                    readOnly: true,
-                                    minimap: { enabled: false },
-                                    fontSize: 12,
+                                    readOnly: true, minimap: { enabled: false }, fontSize: 12,
                                     fontFamily: '"JetBrains Mono", "Fira Code", Menlo, monospace',
-                                    lineNumbers: 'on',
-                                    scrollBeyondLastLine: false,
-                                    automaticLayout: true,
-                                    wordWrap: 'on',
-                                    padding: { top: 8, bottom: 8 },
+                                    lineNumbers: 'on', scrollBeyondLastLine: false,
+                                    automaticLayout: true, wordWrap: 'on', padding: { top: 8, bottom: 8 },
                                   }}
                                 />
                               </div>
@@ -754,29 +902,188 @@ export default function Room() {
                   })}
                 </div>
               )}
+
+              {/* ── AI Suggestions & Co-pilot (Interviewer only, horizontal grid layout) ── */}
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(6,182,212,0.02))',
+                border: '1px solid var(--border-color)',
+                borderRadius: 14, padding: 20, marginTop: 32,
+              }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
+                  {/* Left: AI suggestions list */}
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 16 }}>🤖</span>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-highlight)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                          Claude Suggestions
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleTriggerSuggestion}
+                        disabled={suggestionBusy || transcript.length === 0}
+                        style={{
+                          padding: '4px 10px', fontSize: 10, fontWeight: 700,
+                          background: suggestionBusy || transcript.length === 0 ? 'var(--bg-card)' : 'rgba(99,102,241,0.15)',
+                          border: '1px solid rgba(99,102,241,0.35)',
+                          color: suggestionBusy || transcript.length === 0 ? 'var(--text-muted)' : 'var(--accent-primary)',
+                          borderRadius: 6, cursor: suggestionBusy || transcript.length === 0 ? 'not-allowed' : 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                      >
+                        {suggestionBusy ? '⏳ Claude is thinking…' : '⚡ Ask Claude now'}
+                      </button>
+                    </div>
+
+                    <div style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 6 }}>
+                      <AISuggestions suggestions={suggestions} busy={suggestionBusy} customBusy={customBusy} />
+                    </div>
+                  </div>
+
+                  {/* Right: Ask Claude anything form */}
+                  <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                          Ask Claude anything
+                        </div>
+                        {/* Mic status inside form header */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{
+                            width: 6, height: 6, borderRadius: '50%', display: 'inline-block',
+                            background: transcribe.permissionState === 'granted' ? 'var(--accent-success)' : 'var(--accent-warning)',
+                          }} />
+                          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>
+                            {transcribe.permissionState === 'granted' ? 'Live Transcribing' : 'Muted'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <form onSubmit={handleCustomPrompt}>
+                        <textarea
+                          value={customQuestion}
+                          onChange={e => setCustomQuestion(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleCustomPrompt(e); }}
+                          placeholder={'e.g. Evaluate last answer about Docker…\nCtrl+Enter to send'}
+                          disabled={customBusy}
+                          rows={3}
+                          style={{
+                            width: '100%', padding: '8px 10px', fontSize: 12,
+                            background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                            borderRadius: 8, color: 'var(--text-highlight)', outline: 'none',
+                            resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
+                            opacity: customBusy ? 0.5 : 1, boxSizing: 'border-box',
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!customQuestion.trim() || customBusy}
+                          style={{
+                            marginTop: 8, width: '100%', padding: '8px', fontSize: 12, fontWeight: 700,
+                            background: customQuestion.trim() && !customBusy ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'var(--bg-card)',
+                            border: '1px solid rgba(6,182,212,0.4)',
+                            color: customQuestion.trim() && !customBusy ? '#fff' : 'var(--text-muted)',
+                            borderRadius: 8, cursor: customQuestion.trim() && !customBusy ? 'pointer' : 'not-allowed',
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {customBusy ? 'Claude is thinking…' : 'Send to Claude →'}
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Session Info Horizontal Footer Bar (Interviewer only) ── */}
+              <div style={{
+                display: 'flex', gap: 24, alignItems: 'center', justifyContent: 'space-between',
+                marginTop: 20, padding: '10px 20px', background: 'rgba(0,0,0,0.3)',
+                border: '1px solid var(--border-color)', borderRadius: 10,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>👤</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CANDIDATE:</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-highlight)', fontWeight: 600 }}>{session.candidateName}</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>💼</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>POSITION:</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-highlight)', fontWeight: 600 }}>{session.positionTitle}</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 14 }}>🟢</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>STATUS:</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                    background: 'rgba(16,185,129,0.15)', color: 'var(--accent-success)',
+                  }}>{session.status?.toUpperCase()}</span>
+                </div>
+              </div>
             </>
           )}
-
         </main>
 
-        {/* Sidebar: AI co-pilot (interviewer only) */}
+        {/* Sidebar Column 1: Video Call + Live Transcript (Interviewer only) */}
         {isInterviewer && (
-          <aside style={sidePanel}>
-            <SidebarHeader title="AI Co-pilot" mic={transcribe} muted={!transcriptionEnabled} onToggleMute={() => setTranscriptionEnabled(v => !v)} />
-            <AISuggestions suggestions={suggestions} busy={suggestionBusy} />
-
-            <SectionHeading>{t('room.liveTranscript')}</SectionHeading>
-            <TranscriptStream chunks={transcript} />
-
-            <SectionHeading>{t('room.video')}</SectionHeading>
-            <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 6, padding: 12, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
-              {t('room.videoEmbedPlaceholder')}
+          <aside style={{ ...sidePanel, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', padding: '12px 14px' }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+              🎥 LIVE VIDEO CALL
             </div>
+            {!isCompleted && interviewerVideoUrl ? (
+              <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-color)', background: '#000', aspectRatio: '16/9', flexShrink: 0 }}>
+                <iframe
+                  key={`mirotalk-interviewer-${interviewerVideoUrl}`}
+                  title="Video call"
+                  src={interviewerVideoUrl}
+                  allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+                  allowFullScreen
+                  style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+                />
+              </div>
+            ) : isCompleted ? (
+              <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                🔇 Video Call Ended
+              </div>
+            ) : (
+              <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                Connecting to video...
+              </div>
+            )}
 
-            <SectionHeading>{t('room.session')}</SectionHeading>
-            <SessionMeta session={session} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                  🗣 LIVE TRANSCRIPT ({transcript.length})
+                </span>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
+                  background: transcribe.listening ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                  color: transcribe.listening ? 'var(--accent-success)' : 'var(--accent-warning)',
+                }}>
+                  {transcribe.listening ? '● Listening' : '■ Idle'} ({transcribe.permissionState})
+                </span>
+              </div>
+              {!transcribe.supported && (
+                <div style={{ fontSize: 10, color: 'var(--accent-danger)' }}>
+                  ⚠️ Web Speech API not supported in this browser. Please use Google Chrome or Edge.
+                </div>
+              )}
+              {transcribe.error && (
+                <div style={{ fontSize: 10, color: 'var(--accent-danger)', background: 'rgba(244,63,94,0.08)', padding: '4px 8px', borderRadius: 4, marginTop: 4 }}>
+                  ⚠️ speech error: {transcribe.error}
+                </div>
+              )}
+            </div>
+            <div style={{ flex: 1, minHeight: 240, overflowY: 'auto' }}>
+              <TranscriptStream chunks={transcript} />
+            </div>
           </aside>
         )}
+
+
       </div>
 
       {/* Meet-style permission gate — while not granted */}
@@ -800,63 +1107,7 @@ export default function Room() {
   );
 }
 
-// ─── Candidate mic banner ──────────────────────────────────────────────────
-// Top-of-page strip that handles all four states cleanly:
-//   - prompt    → "Allow microphone" button that opens the browser's prompt
-//   - granted   → green confirmation of live transcription with mute/resume
-//   - denied    → red banner pointing to the lock icon (browser won't reshow
-//                 the prompt; only manual unblock works)
-//   - unsupported → fallback message for Firefox / unknown browsers
 
-function MicBanner({ transcribe, transcriptionEnabled, onToggleMute }) {
-  const { supported, permissionState } = transcribe;
-  const { t } = useTranslation();
-
-  if (!supported) {
-    return (
-      <div style={{ ...bannerBase, background: 'rgba(148,163,184,0.08)', border: '1px solid var(--border-color)' }}>
-        <span>{t('room.micBanner.unsupported')}</span>
-      </div>
-    );
-  }
-
-  // Permission still ungranted — the MicPermissionDialog modal handles it.
-  if (permissionState !== 'granted') return null;
-
-  // Granted: show live status with mute toggle and language select.
-  return (
-    <div style={{
-      ...bannerBase,
-      background: transcriptionEnabled ? 'rgba(99,102,241,0.08)' : 'rgba(148,163,184,0.08)',
-      border: `1px solid ${transcriptionEnabled ? 'rgba(99,102,241,0.4)' : 'var(--border-color)'}`,
-    }}>
-      <span>
-        {transcriptionEnabled
-          ? <>🎤 <strong style={{ color: 'var(--accent-primary)' }}>{t('room.micBanner.transcribing')}</strong></>
-          : <>{t('room.micBanner.muted')}</>}
-      </span>
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-        <button
-          onClick={onToggleMute}
-          style={{ background: 'transparent', border: '1px solid var(--border-color)', color: 'var(--text-muted)', padding: '4px 12px', borderRadius: 4, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}
-        >
-          {transcriptionEnabled ? t('room.micBanner.muteBtn') : t('room.micBanner.resumeBtn')}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-const bannerBase = {
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-  gap: 12,
-  borderRadius: 6,
-  padding: '10px 14px',
-  marginBottom: 16,
-  fontSize: 13,
-};
 
 // ─── Sidebar pieces ─────────────────────────────────────────────────────────
 
@@ -1153,3 +1404,98 @@ const sidePanel = {
   background: 'var(--bg-panel)', border: '1px solid var(--border-color)',
   borderRadius: 10, padding: '1.25rem', position: 'sticky', top: 24,
 };
+const infoChip = {
+  display: 'inline-flex', alignItems: 'center', gap: 5,
+  padding: '5px 12px', borderRadius: 20, fontSize: 13,
+  background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+  color: 'var(--text-highlight)', fontWeight: 500,
+};
+
+
+// Candidate: video on top, workspace below
+const candidateRoomLayout = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 24,
+  width: '100%',
+  alignItems: 'stretch',
+};
+
+const candidateVideoCol = {
+  width: '100%',
+  maxWidth: 960,
+  margin: '0 auto 12px',
+  flexShrink: 0,
+};
+
+// ─── CandidateVideoPanel ──────────────────────────────────────────────────────
+// Teams/Meet-style sticky panel shown to the candidate.
+// Contains: Free Jitsi video embed, mic status, transcription mute toggle.
+
+function CandidateVideoPanel({ videoRoomUrl, candidateName }) {
+  const embedUrl = videoRoomUrl;
+
+  return (
+    <div style={{
+      background: 'var(--bg-panel)',
+      border: '1px solid var(--border-color)',
+      borderRadius: 12,
+      overflow: 'hidden',
+      boxShadow: 'var(--shadow-lg)',
+    }}>
+      {/* Header */}
+      <div style={{
+        padding: '10px 14px',
+        background: 'rgba(0,0,0,0.3)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        borderBottom: '1px solid var(--border-color)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontSize: 14 }}>📹</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-highlight)' }}>Video Call</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '2px 8px',
+            borderRadius: 20, background: 'rgba(16,185,129,0.15)',
+            color: 'var(--accent-success)', letterSpacing: 0.4,
+          }}>LIVE</span>
+        </div>
+      </div>
+
+      {/* Jitsi embed */}
+      <div style={{ background: '#000', aspectRatio: '16/9', position: 'relative' }}>
+        {embedUrl ? (
+          <iframe
+            key={embedUrl}
+            title="Video call"
+            src={embedUrl}
+            allow="camera; microphone; fullscreen; display-capture; autoplay; clipboard-write"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          />
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#475569', fontSize: 12, gap: 8 }}>
+            <span style={{ width: 20, height: 20, border: '2px solid #475569', borderTopColor: '#6366f1', borderRadius: '50%', animation: 'ai-spin 0.8s linear infinite', display: 'inline-block' }} />
+            Setting up room…
+          </div>
+        )}
+      </div>
+
+
+
+      {/* Candidate name tag */}
+      <div style={{
+        padding: '8px 14px',
+        borderTop: '1px solid var(--border-color)',
+        fontSize: 12, color: 'var(--text-muted)',
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <span style={{ fontSize: 14 }}>👤</span>
+        <span style={{ fontWeight: 600, color: 'var(--text-highlight)' }}>{candidateName}</span>
+        <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-muted)', fontStyle: 'italic' }}>candidate</span>
+      </div>
+    </div>
+  );
+}
+

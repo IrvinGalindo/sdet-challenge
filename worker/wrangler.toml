@@ -12,9 +12,10 @@ FIREBASE_PROJECT_ID  = "sdet-challenge"
 ALLOWED_ORIGINS      = "http://localhost:3000,http://localhost:60237,https://sdet-challenge.firebaseapp.com,https://sdet-challenge.web.app"
 OPENROUTER_MODEL_PARSE    = "anthropic/claude-sonnet-4.5"
 OPENROUTER_MODEL_GENERATE = "anthropic/claude-sonnet-4.5"
-OPENROUTER_MODEL_LIVE     = "openai/gpt-4o-mini"
+OPENROUTER_MODEL_LIVE     = "anthropic/claude-haiku-3.5"
 OPENROUTER_MODEL_EVALUATE = "anthropic/claude-sonnet-4.5"
 OPENROUTER_MODEL_BIAS     = "anthropic/claude-sonnet-4.5"
+OPENROUTER_MODEL_CUSTOM   = "anthropic/claude-haiku-3.5"
 
 # ── Secrets ────────────────────────────────────────────────────────────────
 # Set with: wrangler secret put OPENROUTER_KEY

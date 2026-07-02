@@ -653,6 +653,8 @@
   "aiSuggestions": {
     "title": "AI Suggestions",
     "loading": "AI is reading the conversation…",
+    "loadingCustom": "Claude is thinking…",
+    "customBadge": "You asked",
     "noSuggestions": "No suggestions yet.",
     "noSuggestionsYet": "Suggestions appear once there are a few exchanges to analyze.",
     "followUp": "Follow-up questions"

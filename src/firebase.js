@@ -50,5 +50,9 @@ async function callWorker(path, payload) {
 export const callParseJD              = (jdText)   => callWorker('/parseJD', { jdText });
 export const callGenerateQuestionBank = (position) => callWorker('/generateQuestionBank', { position });
 export const callLiveSuggestion       = (payload)  => callWorker('/liveSuggestion', payload);
+export const callCustomPrompt         = (payload)  => callWorker('/customPrompt', payload);
 export const callEvaluateSession      = (payload)  => callWorker('/evaluateSession', payload);
 export const callBiasAudit            = (report)   => callWorker('/biasAudit', { report });
+
+
+

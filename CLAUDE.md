@@ -280,12 +280,14 @@ Base URL: `REACT_APP_AI_WORKER_URL`. All requests require `Authorization: Bearer
 | `POST /parseJD`          | `{ jdText }`                       | `{ title, seniority, domain, techStack, softSkills, summary }` |
 | `POST /generateQuestionBank` | `{ position }`                 | `{ questions[], challenges[] }`        |
 | `POST /liveSuggestion`   | `{ transcript, question, position }` | `{ suggestion }` (real-time co-pilot) |
+| `POST /customPrompt`     | `{ question, transcript, position }` | `{ answer }` (free-text AI co-pilot query) |
 | `POST /evaluateSession`  | `{ position, candidateName, transcript, answers, challenges }` | Full report object |
 | `POST /biasAudit`        | `{ report }`                       | `{ flags[], overall }`                 |
 
 **Models (configurable in `wrangler.toml`):**
 - Parse / Generate / Evaluate / Bias: `anthropic/claude-sonnet-4.5`
-- Live suggestion: `openai/gpt-4o-mini` (faster/cheaper for real-time)
+- Live suggestion (auto, every 90s): `anthropic/claude-haiku-3.5`
+- Custom prompt (interviewer free-text): `anthropic/claude-haiku-3.5`
 
 ---
 
