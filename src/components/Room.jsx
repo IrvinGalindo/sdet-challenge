@@ -254,6 +254,65 @@ export default function Room() {
   const speakerTag = role === 'interviewer' ? 'interviewer' : 'candidate';
   const handleFinalChunk = useCallback(async (text) => {
     if (!sessionId || !text) return;
+    
+    // Normalise text for comparison (lowercase, alphanumeric, no extra spaces)
+    const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    const normalizedText = norm(text);
+    if (!normalizedText) return;
+
+    // Check for duplicates in the existing transcript state from the other speaker within the last 4s
+    const now = Date.now();
+    const isDuplicate = transcript.some(chunk => {
+      const otherNormalized = norm(chunk.text);
+      if (!otherNormalized) return false;
+
+      // Only deduplicate if it's from the other speaker (i.e. echo/cross-talk)
+      if (chunk.speaker === speakerTag) return false;
+
+      // 1. Check exact match or substring containment
+      let match = (otherNormalized === normalizedText) || 
+                  (otherNormalized.includes(normalizedText) && normalizedText.length > 5) ||
+                  (normalizedText.includes(otherNormalized) && otherNormalized.length > 5);
+
+      // 2. Word overlap check if not matched yet
+      if (!match) {
+        const w1 = normalizedText.split(/\s+/).filter(Boolean);
+        const w2 = otherNormalized.split(/\s+/).filter(Boolean);
+        if (w1.length >= 2 && w2.length >= 2) {
+          const set2 = new Set(w2);
+          const common = w1.filter(w => set2.has(w)).length;
+          const maxLen = Math.max(w1.length, w2.length);
+          if ((common / maxLen) >= 0.7) {
+            match = true;
+          }
+        }
+      }
+
+      if (match) {
+        // Calculate the chunk age
+        let chunkTime = now;
+        if (chunk.createdAt) {
+          if (typeof chunk.createdAt.toMillis === 'function') {
+            chunkTime = chunk.createdAt.toMillis();
+          } else if (chunk.createdAt.seconds != null) {
+            chunkTime = chunk.createdAt.seconds * 1000;
+          } else {
+            chunkTime = new Date(chunk.createdAt).getTime();
+          }
+        }
+        // If the duplicate is within 4 seconds, mark as duplicate
+        if (Math.abs(now - chunkTime) < 4000) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    if (isDuplicate) {
+      console.log(`[Speech Debug] Skipped duplicate chunk from other speaker: "${text}"`);
+      return;
+    }
+
     console.log(`[Speech Debug] Captured final chunk: "${text}" (Speaker: ${speakerTag})`);
     try {
       console.log(`[Speech Debug] Attempting to write chunk to Firestore...`);
@@ -267,7 +326,7 @@ export default function Room() {
     } catch (e) {
       console.error('[Speech Debug] Firestore write failed:', e.code, e.message);
     }
-  }, [sessionId, speakerTag, user]);
+  }, [sessionId, speakerTag, user, transcript]);
 
   const transcribe = useTranscription({
     enabled: !!session && session.status !== 'completed' && micGateDismissed,
