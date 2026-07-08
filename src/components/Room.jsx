@@ -1718,6 +1718,24 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
       // ── 3. Wire up remote stream ───────────────────────────────────────────
       const remoteStream = new MediaStream();
+      remoteStreamRef.current = remoteStream;
+
+      const candidatesQueue = [];
+      const addCandidate = (cand) => {
+        const ice = new RTCIceCandidate(cand);
+        if (pc.remoteDescription) {
+          pc.addIceCandidate(ice).catch(err => console.warn("[VideoCall] Error adding ICE candidate:", err));
+        } else {
+          candidatesQueue.push(ice);
+        }
+      };
+      const flushCandidates = () => {
+        while (candidatesQueue.length > 0) {
+          const ice = candidatesQueue.shift();
+          pc.addIceCandidate(ice).catch(err => console.warn("[VideoCall] Error adding queued ICE candidate:", err));
+        }
+      };
+
       pc.ontrack = e => {
         const stream = e.streams[0];
         stream.getTracks().forEach(t => remoteStream.addTrack(t));
@@ -1725,7 +1743,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
-          setRemoteVideoActive(videoTrack.enabled && !videoTrack.muted);
+          setRemoteVideoActive(true); // Default to active on arrival
           videoTrack.onmute = () => setRemoteVideoActive(false);
           videoTrack.onunmute = () => setRemoteVideoActive(true);
         }
@@ -1742,14 +1760,16 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
         await setDoc(roomDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
         setStatus('connecting');
 
-        unsubAnswer = onSnapshot(roomDocRef, snap => {
+        unsubAnswer = onSnapshot(roomDocRef, async snap => {
           const data = snap.data();
-          if (data?.answer && !pc.currentRemoteDescription)
-            pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          if (data?.answer && !pc.currentRemoteDescription) {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+            flushCandidates();
+          }
         });
         unsubAnswerCands = onSnapshot(answerCandsRef, snap => {
           snap.docChanges().forEach(ch => {
-            if (ch.type === 'added') pc.addIceCandidate(new RTCIceCandidate(ch.doc.data()));
+            if (ch.type === 'added') addCandidate(ch.doc.data());
           });
         });
 
@@ -1771,6 +1791,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
           if (data.offer && !pc.currentRemoteDescription) {
             await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+            flushCandidates();
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             await updateDoc(roomDocRef, { answer: { type: answer.type, sdp: answer.sdp } });
@@ -1780,7 +1801,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
         unsubOfferCands = onSnapshot(offerCandsRef, snap => {
           snap.docChanges().forEach(ch => {
-            if (ch.type === 'added') pc.addIceCandidate(new RTCIceCandidate(ch.doc.data()));
+            if (ch.type === 'added') addCandidate(ch.doc.data());
           });
         });
       }
