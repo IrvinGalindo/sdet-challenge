@@ -1,3 +1,4 @@
+import { Mic } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 
 /**
@@ -111,7 +112,7 @@ export default function CandidateQAPhase({ questions, currentQIdx, transcript })
           minHeight: 52,
         }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5, marginBottom: 4 }}>
-            🎤 YOUR ANSWER (live)
+            <Mic size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} /> YOUR ANSWER (live)
           </div>
           {candidateText ? (
             <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: 'var(--text-highlight)' }}>

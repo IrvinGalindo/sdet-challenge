@@ -1,3 +1,4 @@
+import { AlertTriangle, Lightbulb } from 'lucide-react';
 import { useState } from 'react';
 import './FileTree.css';
 
@@ -35,7 +36,7 @@ export default function FileTree({ lang, trees, activeFile, found, wrong, recent
               <div className={`tree-folder struct-item ${isFolderFound ? 'found' : ''} ${isFolderWrong ? 'wrong' : ''}`}>
                 <span className="tree-arrow">&#9654;</span>
                 <span style={{ flex: 1 }}>{folder.label}</span>
-                <button className="bug-icon-btn" onClick={(e) => handleBugIconClick(e, folderKey)} title="Mark folder as bug">⚠️</button>
+                <button className="bug-icon-btn" onClick={(e) => handleBugIconClick(e, folderKey)} title="Mark folder as bug" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><AlertTriangle size={14} /></button>
               </div>
               {isFolderSel && (
                 <div className="inline-popup tree-popup">
@@ -46,7 +47,7 @@ export default function FileTree({ lang, trees, activeFile, found, wrong, recent
               )}
               {recentBugs.has(folderKey) && folderBugDesc && (
                 <div className="inline-bug-alert tree-bug-alert">
-                  <strong>💡 Issue:</strong> {folderBugDesc}
+                  <strong style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Lightbulb size={14} style={{ color: '#fbbf24' }} /> Issue:</strong> {folderBugDesc}
                 </div>
               )}
             </div>
@@ -71,7 +72,7 @@ export default function FileTree({ lang, trees, activeFile, found, wrong, recent
                     <span className="tree-icon">&#128196;</span>
                     <span style={{ flex: 1 }}>{fname}</span>
                     {foundN > 0 && <span className="tree-badge">{foundN}</span>}
-                    <button className="bug-icon-btn" onClick={(e) => handleBugIconClick(e, fileKey)} title="Mark file as bug">⚠️</button>
+                    <button className="bug-icon-btn" onClick={(e) => handleBugIconClick(e, fileKey)} title="Mark file as bug" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><AlertTriangle size={14} /></button>
                   </div>
                   {isFileSel && (
                     <div className="inline-popup tree-popup" style={{ marginLeft: '24px' }}>
@@ -82,7 +83,7 @@ export default function FileTree({ lang, trees, activeFile, found, wrong, recent
                   )}
                   {recentBugs.has(fileKey) && fileBugDesc && (
                     <div className="inline-bug-alert tree-bug-alert" style={{ marginLeft: '24px' }}>
-                      <strong>💡 Issue:</strong> {fileBugDesc}
+                      <strong style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Lightbulb size={14} style={{ color: '#fbbf24' }} /> Issue:</strong> {fileBugDesc}
                     </div>
                   )}
                 </div>

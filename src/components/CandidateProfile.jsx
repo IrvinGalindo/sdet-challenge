@@ -1,3 +1,4 @@
+import { CheckCircle2, XCircle, Check, X, AlertCircle } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
@@ -156,9 +157,9 @@ export default function CandidateProfile() {
   const pct           = Math.round((weightedTotal / (maxScore || 1)) * 100) || 0;
 
   const getRecommendation = (percentage) => {
-    if (percentage >= 75) return { text: '✅ STRONG HIRE', color: 'var(--accent-success)' };
-    if (percentage >= 55) return { text: '🟡 CONSIDER',   color: 'var(--accent-warning)' };
-    return                       { text: '❌ NOT READY',  color: 'var(--accent-danger)' };
+    if (percentage >= 75) return { text: 'STRONG HIRE', icon: <CheckCircle2 size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />, color: 'var(--accent-success)' };
+    if (percentage >= 55) return { text: 'CONSIDER', icon: <AlertCircle size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />,   color: 'var(--accent-warning)' };
+    return                       { text: 'NOT READY', icon: <XCircle size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} />,  color: 'var(--accent-danger)' };
   };
 
   const handleSave = async () => {
@@ -224,7 +225,7 @@ export default function CandidateProfile() {
       <AdminNavbar />
       {notification && (
         <div className={`cp-toast ${notification.type}`}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span>{notification.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>
           {notification.message}
         </div>
       )}

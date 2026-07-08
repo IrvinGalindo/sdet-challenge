@@ -264,6 +264,8 @@
     "generateReportBtn": "Generate Report",
     "interviewEnded": "This interview has ended.",
     "closeTab": "You can close this tab.",
+    "meetingEnded": "The video call has ended.",
+    "meetingEndedDesc": "The interviewer has left the call, but you can continue working on your challenge.",
     "welcome": "Welcome!",
     "interviewerBeginShortly": "Your interviewer will begin the session shortly.\nYou can chat with them and introduce yourself in the meantime.",
     "yourChallenges": "Your challenges",

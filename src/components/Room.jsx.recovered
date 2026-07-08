@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'; import {
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';import {
   Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, RefreshCw,
   Ban, CheckCircle2, User, Mail, Clock, Bot, Zap, Briefcase, Camera, VolumeX, Check, X
 } from 'lucide-react';
@@ -18,9 +18,10 @@ import AISuggestions from './AISuggestions';
 import MicPermissionDialog from './MicPermissionDialog';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import CandidateQAPhase from './CandidateQAPhase';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, RefreshCw } from 'lucide-react';
 
-const SUGGESTION_INTERVAL_MS = 90_000; // 90 seconds
-const SUGGESTION_MIN_CHUNKS = 4;      // need at least this many chunks since last call
+const SUGGESTION_INTERVAL_MS  = 90_000; // 90 seconds
+const SUGGESTION_MIN_CHUNKS   = 4;      // need at least this many chunks since last call
 
 // Live interview room. Single component that reads role + token from the URL,
 // validates against sessions/{id}, and renders the appropriate panel.
@@ -36,8 +37,8 @@ export default function Room() {
   const { t, i18n } = useTranslation();
 
   const sessionId = searchParams.get('session');
-  const role = searchParams.get('role');
-  const token = searchParams.get('token');
+  const role      = searchParams.get('role');
+  const token     = searchParams.get('token');
 
   const [user, setUser] = useState(null);
   const [authReady, setAuthReady] = useState(false);
@@ -146,7 +147,7 @@ export default function Room() {
         }
       } else if (role === 'interviewer' && data.status === 'scheduled') {
         // Optional: nudge to live when interviewer opens the room.
-        try { await updateDoc(ref, { status: data.status === 'completed' ? 'completed' : 'live' }); } catch { }
+        try { await updateDoc(ref, { status: data.status === 'completed' ? 'completed' : 'live' }); } catch {}
       }
 
       setSession(data);
@@ -259,7 +260,7 @@ export default function Room() {
   const speakerTag = role === 'interviewer' ? 'interviewer' : 'candidate';
   const handleFinalChunk = useCallback(async (text) => {
     if (!sessionId || !text) return;
-
+    
     // Normalise text for comparison (lowercase, alphanumeric, no extra spaces)
     const norm = (s) => (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
     const normalizedText = norm(text);
@@ -275,9 +276,9 @@ export default function Room() {
       if (chunk.speaker === speakerTag) return false;
 
       // 1. Check exact match or substring containment
-      let match = (otherNormalized === normalizedText) ||
-        (otherNormalized.includes(normalizedText) && normalizedText.length > 5) ||
-        (normalizedText.includes(otherNormalized) && otherNormalized.length > 5);
+      let match = (otherNormalized === normalizedText) || 
+                  (otherNormalized.includes(normalizedText) && normalizedText.length > 5) ||
+                  (normalizedText.includes(otherNormalized) && otherNormalized.length > 5);
 
       // 2. Word overlap check if not matched yet
       if (!match) {
@@ -322,7 +323,7 @@ export default function Room() {
     try {
       console.log(`[Speech Debug] Attempting to write chunk to Firestore...`);
       const docRef = await addDoc(collection(db, 'sessions', sessionId, 'transcript_chunks'), {
-        speaker: speakerTag,
+        speaker:   speakerTag,
         authorUid: user?.uid || null,
         text,
         createdAt: serverTimestamp(),
@@ -384,12 +385,12 @@ export default function Room() {
 
         await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
           suggestion: result.suggestion || '',
-          topic: result.topic || '',
-          priority: result.priority || 'low',
-          reasoning: result.reasoning || '',
-          model: result._model || null,
+          topic:      result.topic || '',
+          priority:   result.priority || 'low',
+          reasoning:  result.reasoning || '',
+          model:      result._model || null,
           tokensUsed: result._tokensUsed || 0,
-          createdAt: serverTimestamp(),
+          createdAt:  serverTimestamp(),
         });
       } catch (e) {
         console.warn('Live suggestion failed:', e.message || e);
@@ -418,14 +419,14 @@ export default function Room() {
         askedTopics,
       });
       await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
-        suggestion: result.suggestion || '',
-        topic: result.topic || '',
-        priority: result.priority || 'low',
-        reasoning: result.reasoning || '',
-        model: result._model || null,
-        tokensUsed: result._tokensUsed || 0,
-        isCustom: false,
-        createdAt: serverTimestamp(),
+        suggestion:  result.suggestion || '',
+        topic:       result.topic || '',
+        priority:    result.priority || 'low',
+        reasoning:   result.reasoning || '',
+        model:       result._model || null,
+        tokensUsed:  result._tokensUsed || 0,
+        isCustom:    false,
+        createdAt:   serverTimestamp(),
       });
     } catch (e) {
       console.warn('On-demand suggestion failed:', e.message || e);
@@ -451,15 +452,15 @@ export default function Room() {
           : null,
       });
       await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
-        suggestion: result.answer || '',
-        topic: 'Custom prompt',
-        priority: 'low',
-        reasoning: '',
-        question: q,
-        model: result._model || null,
-        tokensUsed: result._tokensUsed || 0,
-        isCustom: true,
-        createdAt: serverTimestamp(),
+        suggestion:  result.answer || '',
+        topic:       'Custom prompt',
+        priority:    'low',
+        reasoning:   '',
+        question:    q,
+        model:       result._model || null,
+        tokensUsed:  result._tokensUsed || 0,
+        isCustom:    true,
+        createdAt:   serverTimestamp(),
       });
     } catch (e) {
       console.warn('Custom prompt failed:', e.message || e);
@@ -470,9 +471,9 @@ export default function Room() {
 
   // ── Phase control (interviewer only) ─────────────────────────────────────
   // phase: 'intro' | 'questions' | 'challenges' — stored on session doc so candidate reacts in real-time.
-  const phase = session?.phase || 'intro';
-  const currentQIdx = session?.currentQuestionIdx ?? 0;
-  const isIntroPhase = phase === 'intro';
+  const phase            = session?.phase || 'intro';
+  const currentQIdx      = session?.currentQuestionIdx ?? 0;
+  const isIntroPhase     = phase === 'intro';
   const isQuestionsPhase = phase === 'questions';
 
   const handleStartQuestions = async () => {
@@ -491,11 +492,11 @@ export default function Room() {
       // Save the candidate's verbal answer for the current question (accumulated on interviewer side).
       if (questionId && answerText) {
         await addDoc(collection(db, 'sessions', sessionId, 'answers'), {
-          challengeId: questionId,
-          kind: 'verbal',
-          text: answerText,
+          challengeId:      questionId,
+          kind:             'verbal',
+          text:             answerText,
           candidateAuthUid: session?.candidateAuthUid || null,
-          submittedAt: serverTimestamp(),
+          submittedAt:      serverTimestamp(),
         });
       }
       await updateDoc(doc(db, 'sessions', sessionId), { currentQuestionIdx: newIdx });
@@ -508,11 +509,11 @@ export default function Room() {
     try {
       if (lastQuestionId && lastAnswerText) {
         await addDoc(collection(db, 'sessions', sessionId, 'answers'), {
-          challengeId: lastQuestionId,
-          kind: 'verbal',
-          text: lastAnswerText,
+          challengeId:      lastQuestionId,
+          kind:             'verbal',
+          text:             lastAnswerText,
           candidateAuthUid: session?.candidateAuthUid || null,
-          submittedAt: serverTimestamp(),
+          submittedAt:      serverTimestamp(),
         });
       }
       await updateDoc(doc(db, 'sessions', sessionId), {
@@ -528,11 +529,11 @@ export default function Room() {
   const handleVerbalAnswer = useCallback(async (questionId, text) => {
     try {
       await addDoc(collection(db, 'sessions', sessionId, 'answers'), {
-        challengeId: questionId,
-        kind: 'verbal',
-        text: text || '',
+        challengeId:      questionId,
+        kind:             'verbal',
+        text:             text || '',
         candidateAuthUid: user?.uid || null,
-        submittedAt: serverTimestamp(),
+        submittedAt:      serverTimestamp(),
       });
     } catch (e) {
       console.error('Verbal answer save failed:', e);
@@ -546,10 +547,10 @@ export default function Room() {
         candidateAuthUid: user.uid,
         kind: submission.kind,
         selectedOption: submission.selectedOption || null,
-        isCorrect: submission.isCorrect ?? null,
-        text: submission.text || null,
-        language: submission.language || null,
-        forensics: submission.forensics || null,
+        isCorrect:      submission.isCorrect ?? null,
+        text:           submission.text || null,
+        language:       submission.language || null,
+        forensics:      submission.forensics || null,
         submittedAt: serverTimestamp(),
       });
     } catch (e) {
@@ -579,10 +580,8 @@ export default function Room() {
       }));
       const report = await callEvaluateSession({
         position: position
-          ? {
-            title: position.title, seniority: position.seniority, domain: position.domain,
-            techStack: position.techStack, softSkills: position.softSkills
-          }
+          ? { title: position.title, seniority: position.seniority, domain: position.domain,
+              techStack: position.techStack, softSkills: position.softSkills }
           : { title: session.positionTitle || 'Unknown', seniority: 'unknown' },
         candidateName: session.candidateName,
         transcript: transcriptList,
@@ -600,15 +599,15 @@ export default function Room() {
       // 4. Best-effort audit row for the evaluation call.
       try {
         await addDoc(collection(db, 'ai_audit'), {
-          promptType: 'evaluate_session',
-          createdBy: user.uid,
+          promptType:  'evaluate_session',
+          createdBy:   user.uid,
           sessionId,
-          positionId: session.positionId || null,
-          tokensUsed: report._tokensUsed || 0,
-          model: report._model || null,
-          createdAt: serverTimestamp(),
+          positionId:  session.positionId || null,
+          tokensUsed:  report._tokensUsed || 0,
+          model:       report._model || null,
+          createdAt:   serverTimestamp(),
         });
-      } catch { }
+      } catch {}
 
       // 5. Run bias audit on the generated report (Phase 6).
       // Best-effort — if it fails, the report still saved successfully.
@@ -617,25 +616,25 @@ export default function Room() {
         const audit = await callBiasAudit(report);
         await updateDoc(doc(db, 'sessions', sessionId), {
           biasAudit: {
-            flags: audit.flags || [],
+            flags:   audit.flags || [],
             overall: audit.overall || 'clean',
-            model: audit._model || null,
+            model:   audit._model || null,
             generatedAt: serverTimestamp(),
           },
         });
         try {
           await addDoc(collection(db, 'ai_audit'), {
             promptType: 'bias_audit',
-            createdBy: user.uid,
+            createdBy:  user.uid,
             sessionId,
             positionId: session.positionId || null,
             tokensUsed: audit._tokensUsed || 0,
-            model: audit._model || null,
-            flagCount: (audit.flags || []).length,
-            overall: audit.overall || 'clean',
-            createdAt: serverTimestamp(),
+            model:      audit._model || null,
+            flagCount:  (audit.flags || []).length,
+            overall:    audit.overall || 'clean',
+            createdAt:  serverTimestamp(),
           });
-        } catch { }
+        } catch {}
       } catch (auditErr) {
         console.warn('Bias audit failed (non-fatal):', auditErr.message || auditErr);
       }
@@ -713,9 +712,9 @@ export default function Room() {
   }
   if (!session) return null;
 
-  const isCandidate = role === 'candidate';
+  const isCandidate   = role === 'candidate';
   const isInterviewer = role === 'interviewer';
-  const isCompleted = session.status === 'completed';
+  const isCompleted   = session.status === 'completed';
 
   return (
     <div style={pageWrap}>
@@ -743,11 +742,11 @@ export default function Room() {
               }}
             >
               {ending
-                ? (endingStage === 'closing' ? t('room.closingSession')
+                ? (endingStage === 'closing'    ? t('room.closingSession')
                   : endingStage === 'evaluating' ? t('room.generatingReport')
-                    : endingStage === 'saving' ? t('room.savingReport')
-                      : endingStage === 'auditing' ? t('room.runningBiasAudit')
-                        : t('room.ending'))
+                  : endingStage === 'saving'     ? t('room.savingReport')
+                  : endingStage === 'auditing'   ? t('room.runningBiasAudit')
+                  : t('room.ending'))
                 : t('room.endInterview')}
             </button>
           )}
@@ -772,8 +771,8 @@ export default function Room() {
                 borderRadius: 6, fontWeight: 700, cursor: ending ? 'wait' : 'pointer'
               }}
             >
-              {ending
-                ? (endingStage === 'evaluating' ? t('room.generatingReport') : t('room.savingReport'))
+              {ending 
+                ? (endingStage === 'evaluating' ? t('room.generatingReport') : t('room.savingReport')) 
                 : t('room.generateReportBtn')}
             </button>
           )}
@@ -787,37 +786,16 @@ export default function Room() {
 
           {isCandidate && (
             <div style={candidateRoomLayout}>
-              {!isCompleted && !ending && sessionId && (
+              {/* Video Call (above workspace, only shown while live) */}
+              {!isCompleted && !ending && !videoLeft && sessionId && (
                 <div style={candidateVideoCol}>
-                  {videoLeft ? (
-                    <div style={{
-                      background: 'rgba(25, 26, 28, 0.4)',
-                      border: '1px dashed var(--border-color)',
-                      borderRadius: 12,
-                      padding: '24px 16px',
-                      fontSize: 14,
-                      color: 'var(--text-muted)',
-                      textAlign: 'center',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 8,
-                      backdropFilter: 'blur(8px)',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
-                    }}>
-                      <VolumeX size={24} style={{ color: 'var(--text-muted)' }} />
-                      <strong style={{ color: 'var(--text-highlight)' }}>{t('room.meetingEnded')}</strong>
-                      <span style={{ fontSize: 12 }}>{t('room.meetingEndedDesc')}</span>
-                    </div>
-                  ) : (
-                    <VideoCall
-                      sessionId={sessionId}
-                      role="candidate"
-                      displayName={session.candidateName || 'Candidate'}
-                      remoteDisplayName="Interviewer"
-                      onLeft={() => setVideoLeft(true)}
-                    />
-                  )}
+                  <VideoCall
+                    sessionId={sessionId}
+                    role="candidate"
+                    displayName={session.candidateName || 'Candidate'}
+                    remoteDisplayName="Interviewer"
+                    onLeft={() => setVideoLeft(true)}
+                  />
                 </div>
               )}
 
@@ -875,8 +853,8 @@ export default function Room() {
                       width: 52, height: 52, borderRadius: 14,
                       background: 'rgba(99,102,241,0.18)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      flexShrink: 0,
-                    }}><Mic size={26} style={{ color: 'var(--accent-primary)' }} /></div>
+                      fontSize: 26, flexShrink: 0,
+                    }}>🎙️</div>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: 4 }}>SESSION READY</div>
                       <h2 style={{ margin: '0 0 6px', color: 'var(--text-highlight)', fontSize: 20 }}>{t('room.introGreeting')}</h2>
@@ -886,11 +864,9 @@ export default function Room() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 24 }}>
-                    <div style={{ ...infoChip, display: 'flex', alignItems: 'center' }}><User size={13} style={{ marginRight: 6 }} />{session.candidateName}</div>
-                    <div style={{ ...infoChip, display: 'flex', alignItems: 'center' }}><Briefcase size={13} style={{ marginRight: 6 }} />{session.positionTitle}</div>
-                    {session.candidateEmail && (
-                      <div style={{ ...infoChip, display: 'flex', alignItems: 'center' }}><Mail size={13} style={{ marginRight: 6 }} />{session.candidateEmail}</div>
-                    )}
+                    <div style={infoChip}>👤 {session.candidateName}</div>
+                    <div style={infoChip}>💼 {session.positionTitle}</div>
+                    {session.candidateEmail && <div style={infoChip}>✉️ {session.candidateEmail}</div>}
                   </div>
                   <button
                     onClick={handleStartQuestions}
@@ -960,7 +936,7 @@ export default function Room() {
                             background: ans ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.1)',
                             color: ans ? 'var(--accent-success)' : 'var(--text-muted)',
                           }}>
-                            {ans ? '✓ Submitted' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Pending</span>}
+                            {ans ? '✓ Submitted' : '⏳ Pending'}
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: ans ? 10 : 0 }}>{c.prompt}</div>
@@ -1013,7 +989,7 @@ export default function Room() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', marginRight: 4 }}><Bot size={16} /></span>
+                        <span style={{ fontSize: 16 }}>🤖</span>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-highlight)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
                           Claude Suggestions
                         </div>
@@ -1030,17 +1006,7 @@ export default function Room() {
                           transition: 'all 0.2s',
                         }}
                       >
-                        {suggestionBusy ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Clock size={14} style={{ animation: 'vc-spin 1.5s linear infinite' }} />
-                            Claude is thinking…
-                          </span>
-                        ) : (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            <Zap size={14} />
-                            Ask Claude now
-                          </span>
-                        )}
+                        {suggestionBusy ? '⏳ Claude is thinking…' : '⚡ Ask Claude now'}
                       </button>
                     </div>
 
@@ -1111,19 +1077,19 @@ export default function Room() {
                 border: '1px solid var(--border-color)', borderRadius: 10,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <User size={14} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 14 }}>👤</span>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>CANDIDATE:</span>
                   <span style={{ fontSize: 12, color: 'var(--text-highlight)', fontWeight: 600 }}>{session.candidateName}</span>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Briefcase size={14} style={{ marginRight: 6 }} />
+                  <span style={{ fontSize: 14 }}>💼</span>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>POSITION:</span>
                   <span style={{ fontSize: 12, color: 'var(--text-highlight)', fontWeight: 600 }}>{session.positionTitle}</span>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block', marginRight: 6 }} />
+                  <span style={{ fontSize: 14 }}>🟢</span>
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>STATUS:</span>
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
@@ -1139,7 +1105,7 @@ export default function Room() {
         {isInterviewer && (
           <aside style={{ ...sidePanel, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 100px)', overflowY: 'auto', padding: '12px 14px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-              LIVE VIDEO CALL
+              🎥 LIVE VIDEO CALL
             </div>
             {!isCompleted && !ending && !videoLeft && sessionId ? (
               <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border-color)', background: '#000', aspectRatio: '16/9', flexShrink: 0 }}>
@@ -1153,7 +1119,7 @@ export default function Room() {
               </div>
             ) : (isCompleted || ending || videoLeft) ? (
               <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-                Video Call Ended
+                🔇 Video Call Ended
               </div>
             ) : (
               <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -1164,7 +1130,7 @@ export default function Room() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                  LIVE TRANSCRIPT ({transcript.length})
+                  🗣 LIVE TRANSCRIPT ({transcript.length})
                 </span>
                 <span style={{
                   fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 4,
@@ -1176,12 +1142,12 @@ export default function Room() {
               </div>
               {!transcribe.supported && (
                 <div style={{ fontSize: 10, color: 'var(--accent-danger)' }}>
-                  <span><AlertTriangle size={14} style={{ color: '#fbbf24', marginRight: 6, verticalAlign: 'middle' }} /> Web Speech API not supported in this browser. Please use Google Chrome or Edge.</span>
+                  ⚠️ Web Speech API not supported in this browser. Please use Google Chrome or Edge.
                 </div>
               )}
               {transcribe.error && (
                 <div style={{ fontSize: 10, color: 'var(--accent-danger)', background: 'rgba(244,63,94,0.08)', padding: '4px 8px', borderRadius: 4, marginTop: 4 }}>
-                  <span><AlertTriangle size={14} style={{ color: '#ef4444', marginRight: 6, verticalAlign: 'middle' }} /> speech error: {transcribe.error}</span>
+                  ⚠️ speech error: {transcribe.error}
                 </div>
               )}
             </div>
@@ -1196,20 +1162,20 @@ export default function Room() {
 
       {/* Meet-style permission gate — while not granted */}
       {!isCompleted && !micGateDismissed && transcribe.supported &&
-        (transcribe.permissionState === 'prompt' || transcribe.permissionState === 'denied' || transcribe.permissionState === 'unknown') && (
-          <MicPermissionDialog
-            error={transcribe.error}
-            onAllow={async () => {
-              const ok = await transcribe.requestPermission();
-              if (ok) setMicGateDismissed(true);
-              // If denied, stay open so the user can retry or skip.
-            }}
-            onSkip={() => {
-              setMicGateDismissed(true);
-              setTranscriptionEnabled(false);
-            }}
-          />
-        )}
+       (transcribe.permissionState === 'prompt' || transcribe.permissionState === 'denied' || transcribe.permissionState === 'unknown') && (
+        <MicPermissionDialog
+          error={transcribe.error}
+          onAllow={async () => {
+            const ok = await transcribe.requestPermission();
+            if (ok) setMicGateDismissed(true);
+            // If denied, stay open so the user can retry or skip.
+          }}
+          onSkip={() => {
+            setMicGateDismissed(true);
+            setTranscriptionEnabled(false);
+          }}
+        />
+      )}
       <ConfirmDialog {...dialogProps} />
     </div>
   );
@@ -1334,7 +1300,7 @@ function InterviewerScript({ questions, answers, transcript, currentQIdx, phase,
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {questions.map((q, i) => {
           const answered = !!answers[q.id];
-          const current = i === currentQIdx;
+          const current  = i === currentQIdx;
           return (
             <div
               key={q.id}
@@ -1468,7 +1434,7 @@ function SessionStatus({ status }) {
   const { t } = useTranslation();
   const m = {
     scheduled: { bg: 'rgba(99,102,241,0.18)', fg: 'var(--accent-primary)', label: t('room.status.scheduled') },
-    live: { bg: 'rgba(16,185,129,0.18)', fg: 'var(--accent-success)', label: t('room.status.live') },
+    live:      { bg: 'rgba(16,185,129,0.18)', fg: 'var(--accent-success)', label: t('room.status.live') },
     completed: { bg: 'rgba(148,163,184,0.18)', fg: 'var(--text-muted)', label: t('room.status.completed') },
   };
   const c = m[status] || { bg: 'rgba(99,102,241,0.18)', fg: 'var(--accent-primary)', label: status };
@@ -1562,17 +1528,17 @@ const STUN = {
 };
 
 function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote', onLeft }) {
-  const localRef = useRef(null);
+  const localRef  = useRef(null);
   const remoteRef = useRef(null);
-  const pcRef = useRef(null);
+  const pcRef     = useRef(null);
   const streamRef = useRef(null);
 
-  const [status, setStatus] = useState('init');  // init|connecting|connected|error
-  const [errMsg, setErrMsg] = useState('');
-  const [errHint, setErrHint] = useState('');
+  const [status,   setStatus]   = useState('init');  // init|connecting|connected|error
+  const [errMsg,   setErrMsg]   = useState('');
+  const [errHint,  setErrHint]  = useState('');
   const [retryKey, setRetryKey] = useState(0);        // bump to retry without page reload
-  const [muted, setMuted] = useState(false);
-  const [camOff, setCamOff] = useState(false);
+  const [muted,    setMuted]    = useState(false);
+  const [camOff,   setCamOff]   = useState(false);
   const [audioOnly, setAudioOnly] = useState(false);
   const [hasLocalVideo, setHasLocalVideo] = useState(false);
   const [hasLocalAudio, setHasLocalAudio] = useState(false);
@@ -1605,9 +1571,9 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
     setAudioOnly(false);
     setRemoteVideoActive(false);
 
-    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
+    const roomDocRef    = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
     const offerCandsRef = collection(db, 'sessions', sessionId, 'videoRoom', 'room', 'offerCandidates');
-    const answerCandsRef = collection(db, 'sessions', sessionId, 'videoRoom', 'room', 'answerCandidates');
+    const answerCandsRef= collection(db, 'sessions', sessionId, 'videoRoom', 'room', 'answerCandidates');
 
     const run = async () => {
       // ── 1. Acquire local media (optional fallback if denied) ─────────────────
@@ -1646,12 +1612,9 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
         }
       }
 
-      // Listen for connection state changes
+      // Listen for disconnection (e.g. if the interviewer tab is closed abruptly)
       pc.onconnectionstatechange = () => {
-        console.log("[VideoCall] Connection state:", pc.connectionState);
-        if (pc.connectionState === 'connected') {
-          setStatus('connected');
-        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
           if (!isInterviewer && onLeft) {
             onLeft();
           }
@@ -1664,7 +1627,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
         const stream = e.streams[0];
         stream.getTracks().forEach(t => remoteStream.addTrack(t));
         if (remoteRef.current) remoteRef.current.srcObject = remoteStream;
-
+        
         const videoTrack = stream.getVideoTracks()[0];
         if (videoTrack) {
           setRemoteVideoActive(videoTrack.enabled && !videoTrack.muted);
@@ -1741,10 +1704,10 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
       pcRef.current?.close();
       if (isInterviewer) {
         // Mark interviewer left in Firestore on unmount/cleanup
-        updateDoc(roomDocRef, { interviewerLeft: true }).catch(() => { });
+        updateDoc(roomDocRef, { interviewerLeft: true }).catch(() => {});
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, role, retryKey]);
 
   const toggleMic = () => {
@@ -1761,7 +1724,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
     if (isInterviewer) {
       try {
         await updateDoc(doc(db, 'sessions', sessionId, 'videoRoom', 'room'), { interviewerLeft: true });
-      } catch (e) { }
+      } catch (e) {}
     }
     if (onLeft) onLeft();
   };
@@ -1776,7 +1739,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
   return (
     <div style={{ position: 'relative', background: '#111214', width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
-
+      
       {/* Remote Video Stream / Placeholder */}
       {showRemoteVideo ? (
         <video ref={remoteRef} autoPlay playsInline
@@ -1911,7 +1874,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
             <MicOff size={18} />
           </button>
         )}
-
+        
         {hasLocalVideo ? (
           <button onClick={toggleCam} title={camOff ? 'Camera on' : 'Camera off'} style={teamsBtn(camOff, '#fff', 'rgba(255,255,255,0.12)', '#ef4444')}>
             {camOff ? <VideoOff size={18} /> : <Video size={18} />}

@@ -1,3 +1,4 @@
+import { Check, X, Globe, Pencil, Trash2 } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { db } from '../firebase';
 import {
@@ -191,7 +192,7 @@ export default function QuestionsManager({ currentUser, role, creatorChain }) {
           boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
           display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 700
         }}>
-          {notification.type === 'success' ? '✅' : '❌'} {notification.msg}
+          {notification.type === 'success' ? <Check size={16} /> : <X size={16} />} {notification.msg}
         </div>
       )}
 
@@ -279,7 +280,7 @@ export default function QuestionsManager({ currentUser, role, creatorChain }) {
               </div>
               {role === 'superadmin' && (
                 <span style={{ fontSize: 12, padding: '4px 10px', borderRadius: 4, background: 'rgba(99,102,241,0.2)', color: 'var(--accent-primary)', fontWeight: 700 }}>
-                  🌐 {t('questions.savedAsGlobal', 'Will be saved as Global')}
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Globe size={14} /> {t('questions.savedAsGlobal', 'Will be saved as Global')}</span>
                 </span>
               )}
               <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
@@ -326,7 +327,7 @@ export default function QuestionsManager({ currentUser, role, creatorChain }) {
                     <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)' }}>{q.level}</span>
                     <span style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, background: 'rgba(255,255,255,0.07)', color: 'var(--text-muted)' }}>W: {q.weight}</span>
                     {q.scope === 'global' && (
-                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(99,102,241,0.2)', color: 'var(--accent-primary)', fontWeight: 700 }}>🌐 {t('questions.globalBadge', 'Global')}</span>
+                      <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: 'rgba(99,102,241,0.2)', color: 'var(--accent-primary)', fontWeight: 700 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Globe size={11} /> {t('questions.globalBadge', 'Global')}</span></span>
                     )}
                     <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{expandedId === q.id ? '▲' : '▼'}</span>
                   </div>
@@ -342,10 +343,10 @@ export default function QuestionsManager({ currentUser, role, creatorChain }) {
                       {canEdit(q) && (
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button onClick={() => handleEdit(q)} style={{ padding: '6px 14px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                            ✏ {t('questions.editBtn', 'Edit')}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Pencil size={12} /> {t('questions.editBtn', 'Edit')}</span>
                           </button>
                           <button onClick={() => handleDelete(q.id)} style={{ padding: '6px 14px', background: 'var(--accent-danger)', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                            🗑 {t('common.delete')}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Trash2 size={12} /> {t('common.delete')}</span>
                           </button>
                         </div>
                       )}

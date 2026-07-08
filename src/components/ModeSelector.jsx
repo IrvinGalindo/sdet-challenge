@@ -3,7 +3,7 @@ import './ModeSelector.css';
 const MODES = [
   {
     id: 'restassured',
-    icon: '🔗',
+    icon: <Link size={16} />,
     label: 'REST Assured',
     tag: 'API Testing',
     description: 'Analyze a REST Assured test suite and answer scenario-based questions about API behavior, failure modes, and best practices.',
@@ -12,7 +12,7 @@ const MODES = [
   },
   {
     id: 'sql',
-    icon: '🗄️',
+    icon: <Database size={16} />,
     label: 'SQL Queries',
     tag: 'Database',
     description: 'Examine a SQL schema with JOINs and aggregations. Answer questions about NULL handling, LEFT vs INNER JOIN, and GROUP BY behavior.',
@@ -21,7 +21,7 @@ const MODES = [
   },
   {
     id: 'bugfinder',
-    icon: '🐛',
+    icon: <Bug size={16} />,
     label: 'Bug Finder',
     tag: 'Code Review',
     description: 'Review realistic test automation code across files and directories. Identify security, flakiness, architecture, and CI/CD bugs.',
@@ -49,7 +49,7 @@ export default function ModeSelector({ candidateName, setCandidateName, onSelect
           placeholder="Enter candidate name before starting..."
         />
         <button className="link-btn" onClick={() => setShowLB(v => !v)}>
-          {showLB ? 'Hide results' : '📊 View results'}
+          {showLB ? 'Hide results' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BarChart2 size={16} /> View results</span>}
         </button>
       </div>
 

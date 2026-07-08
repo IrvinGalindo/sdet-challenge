@@ -2,7 +2,7 @@ export const QUIZZES = {
   restassured: {
     id: 'restassured',
     title: 'REST Assured Challenge',
-    icon: '🔗',
+    icon: 'link',
     topic: 'API Testing',
     description: 'Analyze a REST Assured test suite and answer questions about its behavior, best practices, and failure scenarios.',
     snippet: `public class RandomRestAssured {
@@ -84,7 +84,7 @@ export const QUIZZES = {
   sql: {
     id: 'sql',
     title: 'SQL Challenge',
-    icon: '🗄️',
+    icon: 'database',
     topic: 'Database Queries',
     description: 'Analyze a SQL schema with INSERT and SELECT queries and answer questions about joins, aggregations, and NULL behavior.',
     snippet: `CREATE TABLE Departments (

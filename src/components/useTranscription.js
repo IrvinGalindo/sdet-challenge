@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 //
 // Returns: { supported, listening, error, start, stop }
 
-export function useTranscription({ enabled, onFinalChunk }) {
+export function useTranscription({ enabled, lang = 'en-US', onFinalChunk }) {
   const recognitionRef = useRef(null);
   const enabledRef     = useRef(enabled);
   const [supported, setSupported] = useState(true);
@@ -64,10 +64,10 @@ export function useTranscription({ enabled, onFinalChunk }) {
     const recognition = new SR();
     recognition.continuous     = true;
     recognition.interimResults = false;
-    recognition.lang           = 'en-US';
+    recognition.lang           = lang;
 
     recognition.onstart = () => {
-      console.log("[Speech Engine] Speech recognition started. Listening...");
+      console.log(`[Speech Engine] Speech recognition started (${lang}). Listening...`);
       setListening(true);
     };
     recognition.onend   = () => {
@@ -79,14 +79,14 @@ export function useTranscription({ enabled, onFinalChunk }) {
         try { recognition.start(); } catch (e) { console.warn("[Speech Engine] Auto-restart failed:", e.message); }
       }
     };
-    recognition.onerror = (e) => {
-      console.error("[Speech Engine] Error event fired:", e.error);
-      if (e.error === 'no-speech' || e.error === 'aborted') {
+    recognition.onerror = (event) => {
+      console.error("[Speech Engine] Error event fired:", event.error);
+      if (event.error === 'no-speech' || event.error === 'aborted') {
         // Benign — onend will restart.
         return;
       }
-      setError(e.error || 'speech_error');
-      if (e.error === 'not-allowed') {
+      setError(event.error || 'speech_error');
+      if (event.error === 'not-allowed') {
         stopped = true;
         recognitionRef.current = null;
       }
@@ -108,7 +108,7 @@ export function useTranscription({ enabled, onFinalChunk }) {
     };
 
     recognitionRef.current = recognition;
-    console.log("[Speech Engine] Initializing and starting SpeechRecognition instance...");
+    console.log(`[Speech Engine] Initializing and starting SpeechRecognition instance in ${lang}...`);
     console.log("[Speech Hook] useEffect initialized. enabled:", enabled);
     try { recognition.start(); } catch (e) { console.error("[Speech Engine] Start error:", e.message); setError(e.message); }
 
@@ -118,7 +118,7 @@ export function useTranscription({ enabled, onFinalChunk }) {
       recognitionRef.current = null;
       try { recognition.stop(); } catch {}
     };
-  }, [enabled]);
+  }, [enabled, lang]);
 
   // Trigger the browser's native permission prompt. Works while state is
   // 'prompt'; if state is already 'denied' the browser won't reshow the

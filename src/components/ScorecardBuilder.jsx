@@ -1,3 +1,4 @@
+import { Check, X, Trash2 } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -124,7 +125,7 @@ export default function ScorecardBuilder() {
           color: '#fff', padding: '16px 24px', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
           display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 'bold'
         }}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span>{notification.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>
           {notification.message}
         </div>
       )}
@@ -153,7 +154,7 @@ export default function ScorecardBuilder() {
                 style={{ fontSize: '20px', fontWeight: 'bold', background: 'transparent', border: 'none', borderBottom: '2px solid var(--border-color)', color: 'var(--accent-primary)', paddingBottom: '4px', width: '300px' }}
               />
               <button onClick={() => removeCategory(catIdx)} style={{ background: 'transparent', color: 'var(--accent-danger)', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold' }}>
-                🗑 {t('scorecard.deleteCategory', 'Delete Category')}
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Trash2 size={14} /> {t('scorecard.deleteCategory', 'Delete Category')}</span>
               </button>
             </div>
 

@@ -1,3 +1,4 @@
+import { Globe } from 'lucide-react';
 import React, { useState, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 
@@ -181,7 +182,7 @@ export default function CodeChallenge({ challenge, onSubmit, locked, previousAns
           border: '1px solid rgba(99,102,241,0.3)',
           borderRadius: 8, fontSize: 13,
         }}>
-          <span style={{ fontSize: 18 }}>🌐</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: 6 }}><Globe size={18} /></span>
           <span style={{ color: 'var(--text-muted)', lineHeight: 1.5 }}>
             <strong style={{ color: 'var(--accent-primary)' }}>Use any language you prefer.</strong>
             {!language && <span style={{ color: '#f87171', fontWeight: 600 }}> ← Select one below to start.</span>}

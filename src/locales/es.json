@@ -264,6 +264,8 @@
     "generateReportBtn": "Generar Reporte",
     "interviewEnded": "Esta entrevista ha terminado.",
     "closeTab": "Puedes cerrar esta pestaña.",
+    "meetingEnded": "La videollamada ha terminado.",
+    "meetingEndedDesc": "El entrevistador ha salido de la llamada, pero puedes continuar trabajando en tu desafío.",
     "welcome": "¡Bienvenido!",
     "interviewerBeginShortly": "Tu entrevistador comenzará la sesión en breve.\nPuedes conversar con él e introducirte mientras tanto.",
     "yourChallenges": "Tus desafíos",

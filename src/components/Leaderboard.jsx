@@ -1,3 +1,4 @@
+import { Check, X, CheckCircle2, XCircle } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { collection, getDocs, query } from 'firebase/firestore';
@@ -120,7 +121,7 @@ export default function Leaderboard({ onClose }) {
           fontWeight: 'bold',
           transition: 'all 0.3s ease-in-out'
         }}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span>{notification.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>
           {notification.message}
         </div>
       )}
@@ -181,7 +182,7 @@ export default function Leaderboard({ onClose }) {
                                     <li key={q.id} className="lb-bug-item" style={{ background: isCorrect ? 'rgba(16,185,129,0.05)' : 'rgba(239,68,68,0.05)', borderLeft: `3px solid ${isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)'}`, flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
                                       <div style={{ color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}>Q{qIndex + 1}: {q.question}</div>
                                       <div style={{ fontSize: '13px', color: isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
-                                        {isCorrect ? '✅' : '❌'} {selected ? selected.text : t('leaderboard.noAnswer', '(No answer)')}
+                                        {isCorrect ? <Check size={14} style={{ color: 'var(--accent-success)', marginRight: 4, display: 'inline-block', verticalAlign: 'middle' }} /> : <X size={14} style={{ color: 'var(--accent-danger)', marginRight: 4, display: 'inline-block', verticalAlign: 'middle' }} />} {selected ? selected.text : t('leaderboard.noAnswer', '(No answer)')}
                                       </div>
                                     </li>
                                   );
@@ -195,7 +196,7 @@ export default function Leaderboard({ onClose }) {
 
                     {/* Bug Finder details */}
                     <div className="lb-details-section">
-                      <h4 className="lb-details-title found">✅ {t('leaderboard.identified', 'Identified')} ({r.foundKeys ? r.foundKeys.length : 0} / {r.type === 'full' && r.breakdown ? r.breakdown.bugfinder?.total : r.total})</h4>
+                      <h4 className="lb-details-title found" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><CheckCircle2 size={16} style={{ color: 'var(--accent-success)' }} /> {t('leaderboard.identified', 'Identified')} ({r.foundKeys ? r.foundKeys.length : 0} / {r.type === 'full' && r.breakdown ? r.breakdown.bugfinder?.total : r.total})</h4>
                       {r.foundKeys && r.foundKeys.length > 0 ? (
                         <ul className="lb-bugs-list">
                           {r.foundKeys.map(k => {
@@ -234,7 +235,7 @@ export default function Leaderboard({ onClose }) {
                       
                       return (
                         <div className="lb-details-section missed-section">
-                          <h4 className="lb-details-title missed">❌ {t('leaderboard.missed', 'Missed')} ({missedKeys.length})</h4>
+                          <h4 className="lb-details-title missed" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><XCircle size={16} style={{ color: 'var(--accent-danger)' }} /> {t('leaderboard.missed', 'Missed')} ({missedKeys.length})</h4>
                           <ul className="lb-bugs-list missed-list">
                             {missedKeys.map(k => {
                               const b = parseBugKey(k, r.lang);

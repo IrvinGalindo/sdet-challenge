@@ -1,3 +1,4 @@
+import { Trophy } from 'lucide-react';
 import React, { useState } from 'react';
 import MCQChallenge from './MCQChallenge';
 import OpenChallenge from './OpenChallenge';
@@ -87,7 +88,7 @@ export default function ChallengeRunner({ challenges, answers, onAnswer, onCompl
           border: '1px solid var(--accent-success)',
           borderRadius: 10,
         }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}><Trophy size={48} style={{ color: '#fbbf24' }} /></div>
           <strong style={{ fontSize: 18, color: 'var(--accent-success)' }}>
             {t('challenge.allSubmitted', 'All challenges submitted!')}
           </strong>

@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { auth, db, firebaseConfig } from '../firebase';
@@ -154,7 +155,7 @@ export default function AdminDashboard() {
 
       {notification && (
         <div className={`admin-toast ${notification.type}`}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span>{notification.type === 'success' ? <Check size={16} style={{ color: 'var(--accent-success)' }} /> : <X size={16} style={{ color: 'var(--accent-danger)' }} />}</span>
           {notification.message}
         </div>
       )}

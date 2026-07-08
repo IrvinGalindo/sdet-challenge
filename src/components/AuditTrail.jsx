@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { collection, onSnapshot, orderBy, query, limit } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
+import { FileText, Brain, Lightbulb, ClipboardCheck, Scale } from 'lucide-react';
 
 // Admin-only view of the ai_audit/ log. Every LLM call we've made (parseJD,
 // generateQuestionBank, liveSuggestion, evaluateSession, biasAudit) appends
@@ -19,11 +20,11 @@ export default function AuditTrail({ currentUser, role }) {
   const [search, setSearch] = useState('');
 
   const PROMPT_TYPE_LABEL = {
-    parse_jd:           { label: t('audit.types.parseJD', 'Parse JD'),          icon: '📄', color: 'var(--accent-primary)' },
-    generate_questions: { label: t('audit.types.generateBank', 'Generate Bank'), icon: '🧠', color: 'var(--accent-warning)' },
-    live_suggestion:    { label: t('audit.types.liveSuggestion', 'Live Suggestion'), icon: '💡', color: '#60a5fa' },
-    evaluate_session:   { label: t('audit.types.evaluateSession', 'Evaluate Session'), icon: '📝', color: 'var(--accent-success)' },
-    bias_audit:         { label: t('audit.types.biasAudit', 'Bias Audit'),       icon: '⚖️', color: '#a78bfa' },
+    parse_jd:           { label: t('audit.types.parseJD', 'Parse JD'),          icon: <FileText size={12} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />, color: 'var(--accent-primary)' },
+    generate_questions: { label: t('audit.types.generateBank', 'Generate Bank'), icon: <Brain size={12} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />, color: 'var(--accent-warning)' },
+    live_suggestion:    { label: t('audit.types.liveSuggestion', 'Live Suggestion'), icon: <Lightbulb size={12} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />, color: '#60a5fa' },
+    evaluate_session:   { label: t('audit.types.evaluateSession', 'Evaluate Session'), icon: <ClipboardCheck size={12} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />, color: 'var(--accent-success)' },
+    bias_audit:         { label: t('audit.types.biasAudit', 'Bias Audit'),       icon: <Scale size={12} style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 4 }} />, color: '#a78bfa' },
   };
 
   useEffect(() => {

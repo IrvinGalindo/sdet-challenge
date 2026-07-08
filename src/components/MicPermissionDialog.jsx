@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Mic } from 'lucide-react';
 
 // Google-Meet-style permission gate. Shown before the candidate enters the
 // challenge view. Clicking "Use microphone" calls getUserMedia which:
@@ -27,7 +28,9 @@ export default function MicPermissionDialog({ onAllow, onSkip, error }) {
       <div style={modal}>
 
         <div style={iconWrap}>
-          <div style={micCircle}>🎤</div>
+          <div style={micCircle}>
+            <Mic size={32} color="#fff" />
+          </div>
         </div>
 
         <h2 style={{ margin: '0 0 8px', fontSize: 18, textAlign: 'center', color: '#222' }}>
@@ -46,9 +49,17 @@ export default function MicPermissionDialog({ onAllow, onSkip, error }) {
         <button
           onClick={handleAllow}
           disabled={busy}
-          style={{ ...primaryBtn, opacity: busy ? 0.6 : 1, cursor: busy ? 'wait' : 'pointer' }}
+          style={{ 
+            ...primaryBtn, 
+            opacity: busy ? 0.6 : 1, 
+            cursor: busy ? 'wait' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8
+          }}
         >
-          🎤 {busy ? (i18n.language === 'es' ? 'Solicitando…' : 'Requesting…') : t('mic.allow')}
+          <Mic size={16} /> {busy ? (i18n.language === 'es' ? 'Solicitando…' : 'Requesting…') : t('mic.allow')}
         </button>
 
       </div>

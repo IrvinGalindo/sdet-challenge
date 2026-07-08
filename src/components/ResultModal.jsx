@@ -1,3 +1,4 @@
+import { Bug } from 'lucide-react';
 import { FILES, TREES } from '../data';
 import { useTranslation } from 'react-i18next';
 import './ResultModal.css';
@@ -43,7 +44,7 @@ export default function ResultModal({ result, onClose, onReset, customAction }) 
   return (
     <div className="modal-overlay">
       <div className="modal-box">
-        <h2 className="modal-title">🐛 {t('result.bugFinderStage', 'Bug Finder — Stage 3')}</h2>
+        <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Bug size={24} style={{ color: 'var(--accent-primary)' }} /> {t('result.bugFinderStage', 'Bug Finder — Stage 3')}</h2>
         <div className="modal-score">{score}/{total}</div>
         <p className="modal-detail">
           <strong>{name}</strong> {t('result.foundBugs', 'found')} <strong>{score}</strong> {t('result.of', 'of')} {total} {t('result.bugs', 'bugs')} ({pct}%)

@@ -47,13 +47,13 @@ export default function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  const iconMap = { danger: '⚠️', warning: '⚠️', info: 'ℹ️' };
+  const iconMap = { danger: <AlertTriangle size={24} style={{ color: '#ef4444' }} />, warning: <AlertTriangle size={24} style={{ color: '#fbbf24' }} />, info: <Info size={24} style={{ color: '#3b82f6' }} /> };
 
   return (
     <div className="cd-backdrop" onClick={onCancel ? onCancel : undefined} role="dialog" aria-modal="true">
       <div className="cd-panel" onClick={(e) => e.stopPropagation()}>
         <div className={`cd-icon-ring cd-icon-ring--${variant}`}>
-          <span>{iconMap[variant] || '⚠️'}</span>
+          <span>{iconMap[variant] || <AlertTriangle size={24} />}</span>
         </div>
 
         <h2 className="cd-title">{title}</h2>

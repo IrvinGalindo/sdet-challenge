@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
@@ -366,7 +367,7 @@ export default function PositionDetail() {
                                 onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.25)'}
                                 onMouseLeave={e => e.currentTarget.style.background = 'rgba(239,68,68,0.12)'}
                               >
-                                🗑 {t('common.delete')}
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Trash2 size={14} /> {t('common.delete')}</span>
                               </button>
                             )}
                           </div>

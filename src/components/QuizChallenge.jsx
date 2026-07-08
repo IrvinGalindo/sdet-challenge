@@ -1,3 +1,4 @@
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import './QuizChallenge.css';
 
@@ -125,7 +126,7 @@ export default function QuizChallenge({ quiz, candidateName, onComplete, onBack 
           {/* Explanation */}
           {isRevealed && selectedOption && (
             <div className={`qc-explanation ${selectedOption.correct ? 'correct' : 'wrong'}`}>
-              <span className="qc-exp-icon">{selectedOption.correct ? '✅' : '❌'}</span>
+              <span className="qc-exp-icon">{selectedOption.correct ? <CheckCircle2 size={16} style={{ color: 'var(--accent-success)' }} /> : <XCircle size={16} style={{ color: 'var(--accent-danger)' }} />}</span>
               <p>{selectedOption.explanation}</p>
             </div>
           )}

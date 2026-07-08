@@ -1,3 +1,4 @@
+import { Settings, FileText } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db, callEvaluateSession } from '../firebase';
@@ -905,7 +906,7 @@ export default function SessionReport() {
       {!report ? (
         <div style={emptyCard}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>
-            {generating ? '⚙️' : '📝'}
+            {generating ? <Settings size={16} className="animate-spin" style={{ animation: 'vc-spin 1.5s linear infinite' }} /> : <FileText size={16} />}
           </div>
           <strong style={{ fontSize: 16 }}>
             {generating
@@ -938,7 +939,7 @@ export default function SessionReport() {
               onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-hover)'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
               onMouseLeave={e => { e.currentTarget.style.background = 'var(--accent-primary)'; e.currentTarget.style.transform = 'translateY(0)'; }}
             >
-              ⚙ {t('report.generateReport')}
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Settings size={14} /> {t('report.generateReport')}</span>
             </button>
           )}
           {generating && (

@@ -1,3 +1,4 @@
+import { Lightbulb } from 'lucide-react';
 import { useState } from 'react';
 import './CodePanel.css';
 
@@ -64,7 +65,7 @@ export default function CodePanel({ lang, activeFile, files, found, wrong, recen
               )}
               {recentBugs.has(key) && bugLines[ln] && (
                 <div className="inline-bug-alert">
-                  <strong>💡 Issue:</strong> {bugLines[ln]}
+                  <strong style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Lightbulb size={16} style={{ color: '#fbbf24' }} /> Issue:</strong> {bugLines[ln]}
                 </div>
               )}
             </div>

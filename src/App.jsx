@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
+import { BarChart2, User, Link as LinkIcon, Database, Bug, Trophy, BookOpen, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Routes, Route, useSearchParams, Navigate } from 'react-router-dom';
 import { FILES, TREES } from './data';
@@ -61,11 +62,6 @@ async function saveToLeaderboard(entry, candidateId) {
 // ────────────────────────────────────────────────────────────────────────────
 
 const STAGE_ORDER = ['intro', 'restassured', 'sql', 'bugfinder', 'final'];
-const STAGE_LABELS_EN = {
-  restassured: { icon: '🔗', num: 1 },
-  sql:         { icon: '🗄️', num: 2 },
-  bugfinder:   { icon: '🐛', num: 3 },
-};
 
 export default function App() {
   return (
@@ -196,9 +192,9 @@ function ChallengeFlow() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const STAGE_LABELS = {
-    restassured: { label: t('challenge.stages.restassured'), icon: '🔗', num: 1 },
-    sql:         { label: t('challenge.stages.sql'),         icon: '🗄️', num: 2 },
-    bugfinder:   { label: t('challenge.stages.bugfinder'),   icon: '🐛', num: 3 },
+    restassured: { label: t('challenge.stages.restassured'), icon: <LinkIcon size={16} />, num: 1 },
+    sql:         { label: t('challenge.stages.sql'),         icon: <Database size={16} />, num: 2 },
+    bugfinder:   { label: t('challenge.stages.bugfinder'),   icon: <Bug size={16} />, num: 3 },
   };
 
   if (stage === 'intro') {
@@ -228,7 +224,7 @@ function ChallengeFlow() {
             // Pre-registered candidate: name comes from DB, no input needed
             <div className="intro-form">
               <p style={{ color: 'var(--text-highlight)', fontWeight: 'bold', marginBottom: '0.5rem', fontSize: '20px' }}>
-                {candidateName ? `Welcome, ${candidateName}! 👋` : 'Welcome! 👋'}
+                {candidateName ? `Welcome, ${candidateName}!` : 'Welcome!'}
               </p>
               <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '1.5rem' }}>
                 Your interviewer has set up this assessment for you. Click below when you're ready to begin.
@@ -258,7 +254,7 @@ function ChallengeFlow() {
           )}
 
           <button className="link-btn" onClick={() => setShowLB(v => !v)}>
-            {showLB ? 'Hide previous results' : '📊 View previous results'}
+            {showLB ? 'Hide previous results' : 'View previous results'}
           </button>
         </div>
 
@@ -308,7 +304,7 @@ function ChallengeFlow() {
         </div>
 
         <div className="candidate-bar">
-          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>👤 <strong style={{ color: 'var(--text-highlight)' }}>{candidateName}</strong></span>
+          <span style={{ fontSize: 14, color: 'var(--text-muted)' }}><User size={14} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} /> <strong style={{ color: 'var(--text-highlight)' }}>{candidateName}</strong></span>
           <button className="submit-btn finish" onClick={handleBugSubmit}>{t('challenge.submitScore')}</button>
           <button className="link-btn" onClick={() => setShowLB(v => !v)}>
             {showLB ? t('challenge.hideResultsBtn') : t('challenge.viewResultsBtn')}
@@ -336,7 +332,7 @@ function ChallengeFlow() {
 
         {toast && (
           <div className={`toast-alert ${toast.type}`}>
-            <span className="toast-icon">{toast.type === 'success' ? '✅' : '❌'}</span>
+            <span className="toast-icon">{toast.type === 'success' ? <Check size={16} style={{ color: 'var(--accent-success)' }} /> : <X size={16} style={{ color: 'var(--accent-danger)' }} />}</span>
             <span className="toast-msg">{toast.msg}</span>
           </div>
         )}
@@ -366,9 +362,9 @@ function Branding() {
 function StageHeader({ stage, candidateName, scores, stageLabels }) {
   const { t } = useTranslation();
   const LABELS = stageLabels || {
-    restassured: { label: t('challenge.stages.restassured'), icon: '🔗', num: 1 },
-    sql:         { label: t('challenge.stages.sql'),         icon: '🗄️', num: 2 },
-    bugfinder:   { label: t('challenge.stages.bugfinder'),   icon: '🐛', num: 3 },
+    restassured: { label: t('challenge.stages.restassured'), icon: <LinkIcon size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, num: 1 },
+    sql:         { label: t('challenge.stages.sql'),         icon: <Database size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, num: 2 },
+    bugfinder:   { label: t('challenge.stages.bugfinder'),   icon: <Bug size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, num: 3 },
   };
   const steps = ['restassured', 'sql', 'bugfinder'];
   return (
@@ -387,7 +383,7 @@ function StageHeader({ stage, candidateName, scores, stageLabels }) {
           );
         })}
       </div>
-      <span className="stage-candidate">👤 {candidateName}</span>
+      <span className="stage-candidate"><User size={14} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'middle' }} /> {candidateName}</span>
     </div>
   );
 }
@@ -406,15 +402,15 @@ function FinalResults({ scores, candidateName, bugLang, onReset }) {
   const grandPct = Math.round((grandScore / grandTotal) * 100);
 
   const grade =
-    grandPct >= 90 ? { label: t('finalResults.grades.exceptional'), color: '#10B981', emoji: '🏆' } :
-    grandPct >= 75 ? { label: t('finalResults.grades.strong'),       color: '#3B82F6', emoji: '⭐' } :
-    grandPct >= 55 ? { label: t('finalResults.grades.average'),      color: '#F59E0B', emoji: '📊' } :
-                     { label: t('finalResults.grades.needsReview'),  color: '#EF4444', emoji: '📚' };
+    grandPct >= 90 ? { label: t('finalResults.grades.exceptional'), color: '#10B981', emoji: <Trophy size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> } :
+    grandPct >= 75 ? { label: t('finalResults.grades.strong'),       color: '#3B82F6', emoji: <Star size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> } :
+    grandPct >= 55 ? { label: t('finalResults.grades.average'),      color: '#F59E0B', emoji: <BarChart2 size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> } :
+                     { label: t('finalResults.grades.needsReview'),  color: '#EF4444', emoji: <BookOpen size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} /> };
 
   const breakdown = [
-    { label: t('challenge.stages.restassured'), icon: '🔗', score: raScore,  total: raTotal,  pct: Math.round((raScore/raTotal)*100) },
-    { label: t('challenge.stages.sql'),         icon: '🗄️', score: sqlScore, total: sqlTotal, pct: Math.round((sqlScore/sqlTotal)*100) },
-    { label: t('challenge.stages.bugfinder'),   icon: '🐛', score: bfScore,  total: bfTotal,  pct: Math.round((bfScore/bfTotal)*100) },
+    { label: t('challenge.stages.restassured'), icon: <LinkIcon size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, score: raScore,  total: raTotal,  pct: Math.round((raScore/raTotal)*100) },
+    { label: t('challenge.stages.sql'),         icon: <Database size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, score: sqlScore, total: sqlTotal, pct: Math.round((sqlScore/sqlTotal)*100) },
+    { label: t('challenge.stages.bugfinder'),   icon: <Bug size={16} style={{ display: 'inline-block', verticalAlign: 'middle' }} />, score: bfScore,  total: bfTotal,  pct: Math.round((bfScore/bfTotal)*100) },
   ];
 
   return (

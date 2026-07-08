@@ -1,3 +1,4 @@
+import { Check, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, callParseJD, callGenerateQuestionBank } from '../firebase';
@@ -138,7 +139,7 @@ export default function PositionsManager({ currentUser, role }) {
     <div style={{ color: '#fff' }}>
       {notification && (
         <div className={`admin-toast ${notification.type}`}>
-          <span>{notification.type === 'success' ? '✅' : '❌'}</span>
+          <span>{notification.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>
           {notification.msg}
         </div>
       )}
