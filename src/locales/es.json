@@ -425,7 +425,12 @@
     "rejectedLabel": "Descartado",
     "deleteSessionConfirmTitle": "¿Eliminar sesión?",
     "deleteSessionConfirmMessage": "Esto eliminará permanentemente la sesión de \"{{name}}\".",
-    "deleteSessionError": "Error al eliminar la sesión: {{message}}"
+    "deleteSessionError": "Error al eliminar la sesión: {{message}}",
+    "regenerateLinkBtn": "Nuevo Enlace Candidato",
+    "regenerateLinkConfirmTitle": "¿Regenerar enlace del candidato?",
+    "regenerateLinkConfirmMessage": "Esto invalidará el enlace anterior. El candidato necesitará la nueva URL para unirse. Cualquier candidato que ya se hubiera unido quedará bloqueado.",
+    "regenerateLinkSuccess": "¡Nuevo enlace del candidato copiado al portapapeles!",
+    "regenerateLinkError": "Error al regenerar el enlace: {{message}}"
   },
 
   "candidates": {

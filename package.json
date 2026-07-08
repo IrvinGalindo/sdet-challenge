@@ -21,10 +21,10 @@
     "vite": "^5.2.0"
   },
   "scripts": {
-    "start": "vite",
-    "dev": "vite",
+    "start": "vite --host",
+    "dev": "vite --host",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview --host"
   },
   "browserslist": {
     "production": [

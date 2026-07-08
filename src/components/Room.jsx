@@ -6,7 +6,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth, db, callLiveSuggestion, callCustomPrompt, callEvaluateSession, callBiasAudit } from '../firebase';
 import {
   doc, onSnapshot, updateDoc, getDoc, setDoc, collection, addDoc,
-  query, orderBy, limit, serverTimestamp,
+  query, orderBy, limit, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 import Editor from '@monaco-editor/react';
@@ -684,7 +684,41 @@ export default function Room() {
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const handleRegenerateLink = async () => {
+    const ok = await openConfirm({
+      title: t('positions.regenerateLinkConfirmTitle'),
+      message: t('positions.regenerateLinkConfirmMessage'),
+      confirmLabel: t('positions.regenerateLinkBtn'),
+      cancelLabel: t('common.cancel'),
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const newToken = (() => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID)
+          return crypto.randomUUID().replace(/-/g, '');
+        return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+      })();
+      const newExpiry = Timestamp.fromMillis(Date.now() + 3 * 3600 * 1000);
+      await updateDoc(doc(db, 'sessions', sessionId), {
+        candidateToken: newToken,
+        candidateAuthUid: null,
+        expiresAt: newExpiry,
+      });
+      const url = `${window.location.origin}/room?session=${sessionId}&role=candidate&token=${newToken}`;
+      try { await navigator.clipboard.writeText(url); } catch { }
+      openConfirm({
+        title: t('positions.regenerateLinkBtn'),
+        message: `${t('positions.regenerateLinkSuccess')}\n\n${url}`,
+        confirmLabel: 'OK',
+        cancelLabel: null,
+      });
+    } catch (err) {
+      console.error('Regenerate link error:', err);
+      setError(t('positions.regenerateLinkError', { message: err.message }));
+    }
+  };
+
   // Check error before loading — auth failures can leave loading true.
   if (error) {
     return (
@@ -731,6 +765,26 @@ export default function Room() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <SessionStatus status={session.status} />
+          {isInterviewer && !isCompleted && (
+            <button
+              onClick={handleRegenerateLink}
+              title={t('positions.regenerateLinkBtn')}
+              style={{
+                padding: '6px 12px',
+                background: 'rgba(99,102,241,0.12)',
+                color: 'var(--accent-primary)',
+                border: '1px solid rgba(99,102,241,0.3)',
+                borderRadius: 6, fontWeight: 600, cursor: 'pointer', fontSize: 12,
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.25)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.12)'}
+            >
+              <RefreshCw size={13} />
+              {t('positions.regenerateLinkBtn')}
+            </button>
+          )}
           {isInterviewer && !isCompleted && (
             <button
               onClick={handleEnd}
@@ -1566,6 +1620,7 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
   const remoteRef = useRef(null);
   const pcRef = useRef(null);
   const streamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
 
   const [status, setStatus] = useState('init');  // init|connecting|connected|error
   const [errMsg, setErrMsg] = useState('');
@@ -1773,6 +1828,21 @@ function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote',
 
   const isError = status === 'error';
   const showRemoteVideo = status === 'connected' && remoteVideoActive;
+
+  // Sync local stream to video element when it becomes visible
+  // (conditional render means localRef.current is null during initial getUserMedia call)
+  useEffect(() => {
+    if (hasLocalVideo && !camOff && localRef.current && streamRef.current) {
+      localRef.current.srcObject = streamRef.current;
+    }
+  }, [hasLocalVideo, camOff]);
+
+  // Sync remote stream when the remote video element mounts
+  useEffect(() => {
+    if (showRemoteVideo && remoteRef.current && remoteStreamRef.current) {
+      remoteRef.current.srcObject = remoteStreamRef.current;
+    }
+  }, [showRemoteVideo]);
 
   return (
     <div style={{ position: 'relative', background: '#111214', width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>

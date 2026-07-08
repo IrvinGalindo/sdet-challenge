@@ -1,14 +1,23 @@
-import { Trash2 } from 'lucide-react';
+import { Trash2, RefreshCw } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import {
-  doc, getDoc, deleteDoc, collection, onSnapshot, query, orderBy, where,
+  doc, getDoc, deleteDoc, collection, onSnapshot, query, orderBy, where, updateDoc, Timestamp,
 } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import AdminNavbar from './AdminNavbar';
+
+const SESSION_TTL_HOURS = 3;
+
+function randomToken() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID().replace(/-/g, '');
+  }
+  return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+}
 
 // Detail view for one position. Shows parsed JD fields, the AI-generated
 // question bank, and (later phases) candidate sessions and a compare panel.
@@ -59,6 +68,54 @@ export default function PositionDetail() {
       openConfirm({
         title: t('common.error', { defaultValue: 'Error' }),
         message: t('positions.deleteSessionError', { message: err.message }),
+        confirmLabel: 'OK',
+        cancelLabel: null,
+        variant: 'danger',
+      });
+    }
+  };
+
+  const regenerateLink = async (s) => {
+    const ok = await openConfirm({
+      title: t('positions.regenerateLinkConfirmTitle'),
+      message: t('positions.regenerateLinkConfirmMessage'),
+      confirmLabel: t('positions.regenerateLinkBtn'),
+      cancelLabel: t('common.cancel'),
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      const newToken = randomToken();
+      const newExpiry = Timestamp.fromMillis(Date.now() + SESSION_TTL_HOURS * 3600 * 1000);
+      await updateDoc(doc(db, 'sessions', s.id), {
+        candidateToken: newToken,
+        candidateAuthUid: null,
+        expiresAt: newExpiry,
+      });
+      const base = window.location.origin;
+      const url = `${base}/room?session=${s.id}&role=candidate&token=${newToken}`;
+      try {
+        await navigator.clipboard.writeText(url);
+        openConfirm({
+          title: t('positions.regenerateLinkBtn'),
+          message: `${t('positions.regenerateLinkSuccess')}\n\n${url}`,
+          confirmLabel: 'OK',
+          cancelLabel: null,
+        });
+      } catch {
+        // Clipboard failed – show URL in dialog anyway
+        openConfirm({
+          title: t('positions.regenerateLinkBtn'),
+          message: url,
+          confirmLabel: 'OK',
+          cancelLabel: null,
+        });
+      }
+    } catch (err) {
+      console.error('Regenerate link error:', err);
+      openConfirm({
+        title: t('common.error', { defaultValue: 'Error' }),
+        message: t('positions.regenerateLinkError', { message: err.message }),
         confirmLabel: 'OK',
         cancelLabel: null,
         variant: 'danger',
@@ -338,15 +395,41 @@ export default function PositionDetail() {
                                 {t('positions.viewReportBtn')}
                               </button>
                             ) : (
-                              <button
-                                className="btn-evaluate"
-                                onClick={() => {
-                                  const url = `/room?session=${s.id}&role=interviewer&token=${s.interviewerToken}`;
-                                  window.open(url, '_blank');
-                                }}
-                              >
-                                {t('positions.openRoomBtn')}
-                              </button>
+                              <>
+                                <button
+                                  className="btn-evaluate"
+                                  onClick={() => {
+                                    const url = `/room?session=${s.id}&role=interviewer&token=${s.interviewerToken}`;
+                                    window.open(url, '_blank');
+                                  }}
+                                >
+                                  {t('positions.openRoomBtn')}
+                                </button>
+                                <button
+                                  onClick={() => regenerateLink(s)}
+                                  title={t('positions.regenerateLinkBtn')}
+                                  style={{
+                                    background: 'rgba(99,102,241,0.12)',
+                                    border: '1px solid rgba(99,102,241,0.3)',
+                                    color: 'var(--accent-primary)',
+                                    padding: '4px 10px',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                    lineHeight: 1.4,
+                                    transition: 'background 0.15s',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.25)'}
+                                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.12)'}
+                                >
+                                  <RefreshCw size={13} />
+                                  {t('positions.regenerateLinkBtn')}
+                                </button>
+                              </>
                             )}
                             {isAdminLike && (
                               <button

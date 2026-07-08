@@ -425,7 +425,12 @@
     "rejectedLabel": "Discarded",
     "deleteSessionConfirmTitle": "Delete session?",
     "deleteSessionConfirmMessage": "This will permanently remove the session for \"{{name}}\".",
-    "deleteSessionError": "Failed to delete session: {{message}}"
+    "deleteSessionError": "Failed to delete session: {{message}}",
+    "regenerateLinkBtn": "New Candidate Link",
+    "regenerateLinkConfirmTitle": "Regenerate candidate link?",
+    "regenerateLinkConfirmMessage": "This will invalidate the previous link. The candidate will need the new URL to join. Any previous candidate who already joined will be locked out.",
+    "regenerateLinkSuccess": "New candidate link copied to clipboard!",
+    "regenerateLinkError": "Failed to regenerate link: {{message}}"
   },
 
   "candidates": {
