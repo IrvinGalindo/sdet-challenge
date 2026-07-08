@@ -18,6 +18,7 @@ import AISuggestions from './AISuggestions';
 import MicPermissionDialog from './MicPermissionDialog';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import CandidateQAPhase from './CandidateQAPhase';
+import { RegenerateLinkModal } from './ScheduleInterviewModal';
 
 const SUGGESTION_INTERVAL_MS = 90_000; // 90 seconds
 const SUGGESTION_MIN_CHUNKS = 4;      // need at least this many chunks since last call
@@ -55,6 +56,7 @@ export default function Room() {
   const [customQuestion, setCustomQuestion] = useState('');
   const [micGateDismissed, setMicGateDismissed] = useState(false);
   const [questions, setQuestions] = useState([]);  // position interview questions
+  const [regeneratedUrl, setRegeneratedUrl] = useState(null);
   const { dialogProps, openConfirm } = useConfirmDialog();
 
   // ── Auth bootstrap ─────────────────────────────────────────────────────────
@@ -707,12 +709,7 @@ export default function Room() {
       });
       const url = `${window.location.origin}/room?session=${sessionId}&role=candidate&token=${newToken}`;
       try { await navigator.clipboard.writeText(url); } catch { }
-      openConfirm({
-        title: t('positions.regenerateLinkBtn'),
-        message: `${t('positions.regenerateLinkSuccess')}\n\n${url}`,
-        confirmLabel: 'OK',
-        cancelLabel: null,
-      });
+      setRegeneratedUrl(url);
     } catch (err) {
       console.error('Regenerate link error:', err);
       setError(t('positions.regenerateLinkError', { message: err.message }));
@@ -1265,6 +1262,12 @@ export default function Room() {
           />
         )}
       <ConfirmDialog {...dialogProps} />
+      {regeneratedUrl && (
+        <RegenerateLinkModal
+          url={regeneratedUrl}
+          onClose={() => setRegeneratedUrl(null)}
+        />
+      )}
     </div>
   );
 }

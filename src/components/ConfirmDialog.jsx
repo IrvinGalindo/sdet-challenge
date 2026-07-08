@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import './ConfirmDialog.css';
-
+import { AlertTriangle, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**

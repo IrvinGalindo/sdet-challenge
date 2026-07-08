@@ -6,7 +6,7 @@ import {
   doc, getDoc, deleteDoc, collection, onSnapshot, query, orderBy, where, updateDoc, Timestamp,
 } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
-import ScheduleInterviewModal from './ScheduleInterviewModal';
+import ScheduleInterviewModal, { RegenerateLinkModal } from './ScheduleInterviewModal';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import AdminNavbar from './AdminNavbar';
 
@@ -35,6 +35,7 @@ export default function PositionDetail() {
   const [loading, setLoading] = useState(true);
   const [showSchedule, setShowSchedule] = useState(false);
   const [selectedSessionIds, setSelectedSessionIds] = useState(new Set());
+  const [regeneratedUrl, setRegeneratedUrl] = useState(null);
   const { dialogProps, openConfirm } = useConfirmDialog();
 
   const toggleSelected = (sid) => {
@@ -94,23 +95,8 @@ export default function PositionDetail() {
       });
       const base = window.location.origin;
       const url = `${base}/room?session=${s.id}&role=candidate&token=${newToken}`;
-      try {
-        await navigator.clipboard.writeText(url);
-        openConfirm({
-          title: t('positions.regenerateLinkBtn'),
-          message: `${t('positions.regenerateLinkSuccess')}\n\n${url}`,
-          confirmLabel: 'OK',
-          cancelLabel: null,
-        });
-      } catch {
-        // Clipboard failed – show URL in dialog anyway
-        openConfirm({
-          title: t('positions.regenerateLinkBtn'),
-          message: url,
-          confirmLabel: 'OK',
-          cancelLabel: null,
-        });
-      }
+      try { await navigator.clipboard.writeText(url); } catch { }
+      setRegeneratedUrl(url);
     } catch (err) {
       console.error('Regenerate link error:', err);
       openConfirm({
@@ -470,6 +456,12 @@ export default function PositionDetail() {
           position={{ ...position, id, challenges }}
           currentUser={user}
           onClose={() => setShowSchedule(false)}
+        />
+      )}
+      {regeneratedUrl && (
+        <RegenerateLinkModal
+          url={regeneratedUrl}
+          onClose={() => setRegeneratedUrl(null)}
         />
       )}
       <ConfirmDialog {...dialogProps} />

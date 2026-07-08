@@ -166,6 +166,36 @@ function LinkRow({ label, url, accent }) {
   );
 }
 
+/**
+ * RegenerateLinkModal — shown after regenerating a candidate link.
+ * Mirrors the ScheduleInterviewModal success screen.
+ * Props: url {string}, onClose {fn}
+ */
+export function RegenerateLinkModal({ url, onClose }) {
+  const { t } = useTranslation();
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={modal} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ margin: 0 }}>{t('positions.regenerateLinkBtn')}</h3>
+          <button onClick={onClose} style={closeBtn}>✕</button>
+        </div>
+
+        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
+          <strong style={{ color: 'var(--accent-success)' }}>{t('positions.regenerateLinkSuccess')}</strong>
+          <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 8 }}>{t('schedule.validFor', { hours: 3 })}</span>
+        </div>
+
+        <LinkRow label={t('schedule.candidateLinkLabel')} url={url} accent="var(--accent-warning)" />
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={btnGhost}>{t('schedule.close')}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, children }) {
   return (
     <div style={{ marginBottom: 12 }}>
