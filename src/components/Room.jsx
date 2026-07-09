@@ -57,7 +57,9 @@ export default function Room() {
   const [micGateDismissed, setMicGateDismissed] = useState(false);
   const [questions, setQuestions] = useState([]);  // position interview questions
   const [regeneratedUrl, setRegeneratedUrl] = useState(null);
+  const [meetingMuted, setMeetingMuted] = useState(false);
   const { dialogProps, openConfirm } = useConfirmDialog();
+
 
   // ── Auth bootstrap ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -328,10 +330,11 @@ export default function Room() {
   }, [sessionId, speakerTag, user, transcript]);
 
   const transcribe = useTranscription({
-    enabled: !!session && session.status !== 'completed' && micGateDismissed,
+    enabled: !!session && session.status !== 'completed' && micGateDismissed && !meetingMuted,
     lang: i18n.language === 'es' ? 'es-ES' : 'en-US',
     onFinalChunk: handleFinalChunk,
   });
+
 
   // Auto-dismiss the gate if permission is already granted from a previous visit.
   useEffect(() => {
@@ -876,7 +879,9 @@ export default function Room() {
                       displayName={session.candidateName || 'Candidate'}
                       remoteDisplayName="Interviewer"
                       onLeft={() => setVideoLeft(true)}
+                      onMuteStatusChanged={setMeetingMuted}
                     />
+
                   )}
                 </div>
               )}
@@ -1209,7 +1214,9 @@ export default function Room() {
                   displayName="Interviewer"
                   remoteDisplayName={session.candidateName || 'Candidate'}
                   onLeft={() => setVideoLeft(true)}
+                  onMuteStatusChanged={setMeetingMuted}
                 />
+
               </div>
             ) : (isCompleted || ending || videoLeft) ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
@@ -1638,60 +1645,109 @@ const candidateVideoCol = {
 //   displayName – label shown in the local video tile
 //   onLeft      – callback fired when the user clicks Hang Up
 
-function VideoCall({ sessionId, role, displayName, onLeft }) {
+function VideoCall({ sessionId, role, displayName, onLeft, onMuteStatusChanged }) {
   const containerRef = useRef(null);
   const jitsiApiRef = useRef(null);
   const [jitsiReady, setJitsiReady] = useState(false);
   const [jitsiError, setJitsiError] = useState('');
+  const [activeDomain, setActiveDomain] = useState(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const isInterviewer = role === 'interviewer';
 
-  // Keep stable reference to onLeft to prevent iframe from restarting on parent re-renders
+  // Keep stable reference to callbacks to prevent iframe from restarting on parent re-renders
   const onLeftRef = useRef(onLeft);
   useEffect(() => {
     onLeftRef.current = onLeft;
   }, [onLeft]);
 
+  const onMuteStatusChangedRef = useRef(onMuteStatusChanged);
+  useEffect(() => {
+    onMuteStatusChangedRef.current = onMuteStatusChanged;
+  }, [onMuteStatusChanged]);
 
-  // 1. Load Jitsi script and poll until window.JitsiMeetExternalAPI is a constructor
+
+  // 1. Load Jitsi script and check until window.JitsiMeetExternalAPI is a constructor
   useEffect(() => {
     let pollInterval = null;
+    let isCancelled = false;
 
-    const checkReady = () => {
+    const checkReady = (domain) => {
       if (typeof window.JitsiMeetExternalAPI === 'function') {
         clearInterval(pollInterval);
-        setJitsiReady(true);
+        if (!isCancelled) {
+          setActiveDomain(domain);
+          setJitsiReady(true);
+        }
+        return true;
       }
+      return false;
     };
 
-    if (typeof window.JitsiMeetExternalAPI === 'function') {
-      setJitsiReady(true);
+    if (checkReady('meet.element.io')) {
       return;
     }
 
-    if (!document.querySelector('script[src*="external_api.js"]')) {
+    const mirrors = [
+      { domain: 'meet.element.io', src: 'https://meet.element.io/external_api.js' },
+      { domain: 'meet.jit.si', src: 'https://meet.jit.si/external_api.js' }
+    ];
+
+    let timeoutId = null;
+
+    const tryLoadMirror = (index) => {
+      if (index >= mirrors.length) {
+        if (!isCancelled) {
+          setJitsiError('Video conference mirrors took too long to load or are blocked. Please check your network or adblocker settings.');
+        }
+        return;
+      }
+
+      const { domain, src } = mirrors[index];
+      console.log(`[VideoCall] Attempting to load Jitsi API script from: ${src}`);
+
+      // Clean up previous script tag with data-jitsi if any
+      const existing = document.querySelector('script[data-jitsi]');
+      if (existing) {
+        existing.remove();
+      }
+
       const script = document.createElement('script');
-      script.src = 'https://meet.element.io/external_api.js';
+      script.src = src;
       script.setAttribute('data-jitsi', '1');
       script.async = true;
       document.body.appendChild(script);
-    }
 
-    pollInterval = setInterval(checkReady, 200);
-
-    const timeout = setTimeout(() => {
+      // Start polling for JitsiMeetExternalAPI to become available
       clearInterval(pollInterval);
-      setJitsiError('Video conference service took too long to load. Please refresh the page.');
-    }, 15000);
+      pollInterval = setInterval(() => {
+        if (checkReady(domain)) {
+          clearTimeout(timeoutId);
+        }
+      }, 200);
+
+      // Timeout for this specific mirror
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        clearInterval(pollInterval);
+        console.warn(`[VideoCall] Timeout loading mirror: ${src}. Trying next mirror...`);
+        if (!isCancelled) {
+          tryLoadMirror(index + 1);
+        }
+      }, 10000); // 10 seconds per mirror
+    };
+
+    tryLoadMirror(0);
 
     return () => {
+      isCancelled = true;
       clearInterval(pollInterval);
-      clearTimeout(timeout);
+      clearTimeout(timeoutId);
     };
-  }, []);
+  }, [retryTrigger]);
 
   // 2. Initialize Jitsi once the API constructor is available
   useEffect(() => {
-    if (!jitsiReady || !containerRef.current || !sessionId) return;
+    if (!jitsiReady || !activeDomain || !containerRef.current || !sessionId) return;
     if (typeof window.JitsiMeetExternalAPI !== 'function') return;
 
     containerRef.current.innerHTML = '';
@@ -1703,7 +1759,7 @@ function VideoCall({ sessionId, role, displayName, onLeft }) {
 
     let api;
     try {
-      api = new window.JitsiMeetExternalAPI('meet.element.io', {
+      api = new window.JitsiMeetExternalAPI(activeDomain, {
         roomName: `sdet-challenge-${sessionId}`,
         width: '100%',
         height: '100%',
@@ -1740,11 +1796,30 @@ function VideoCall({ sessionId, role, displayName, onLeft }) {
       if (onLeftRef.current) onLeftRef.current();
     });
 
+    api.addEventListener('videoConferenceJoined', async () => {
+      try {
+        const muted = await api.isAudioMuted();
+        console.log(`[VideoCall] Joined conference, initial mute state:`, muted);
+        if (onMuteStatusChangedRef.current) {
+          onMuteStatusChangedRef.current(muted);
+        }
+      } catch (e) {
+        console.warn('[VideoCall] Failed to check initial mute status on join:', e);
+      }
+    });
+
+    api.addEventListener('audioMuteStatusChanged', (event) => {
+      console.log(`[VideoCall] audioMuteStatusChanged event:`, event.muted);
+      if (onMuteStatusChangedRef.current) {
+        onMuteStatusChangedRef.current(event.muted);
+      }
+    });
+
     return () => {
       try { api.dispose(); } catch (e) {}
       jitsiApiRef.current = null;
     };
-  }, [jitsiReady, sessionId, displayName, isInterviewer]);
+  }, [jitsiReady, activeDomain, sessionId, displayName, isInterviewer]);
 
 
   // 3. Candidate: listen for interviewer leaving via Firestore
@@ -1766,7 +1841,7 @@ function VideoCall({ sessionId, role, displayName, onLeft }) {
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: 12, padding: 24, zIndex: 10 }}>
           <AlertTriangle size={32} style={{ color: '#fbbf24' }} />
           <p style={{ textAlignment: 'center', fontSize: 13, color: 'rgba(255,255,255,0.7)', maxWidth: 300 }}>{jitsiError}</p>
-          <button onClick={() => { setJitsiError(''); setJitsiReady(false); setTimeout(() => setJitsiReady(true), 100); }} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: '#5b5fc7', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          <button onClick={() => { setJitsiError(''); setJitsiReady(false); setActiveDomain(null); setRetryTrigger(prev => prev + 1); }} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: '#5b5fc7', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
             Retry
           </button>
         </div>
