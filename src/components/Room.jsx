@@ -221,15 +221,7 @@ export default function Room() {
     if (session?.status === 'live') setVideoLeft(false);
   }, [session?.status]);
 
-  // When videoLeft becomes true on the candidate side, mark the session as completed
-  useEffect(() => {
-    if (role === 'candidate' && videoLeft && sessionId && session?.status === 'live') {
-      console.log("[Room] Candidate detected video call left. Completing session.");
-      updateDoc(doc(db, 'sessions', sessionId), {
-        status: 'completed'
-      }).catch(err => console.error("Error setting session to completed:", err));
-    }
-  }, [role, videoLeft, sessionId, session?.status]);
+
 
   // ── Listen to answers ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -859,7 +851,24 @@ export default function Room() {
                       <VolumeX size={24} style={{ color: 'var(--text-muted)' }} />
                       <strong style={{ color: 'var(--text-highlight)' }}>{t('room.meetingEnded')}</strong>
                       <span style={{ fontSize: 12 }}>{t('room.meetingEndedDesc')}</span>
+                      <button
+                        onClick={() => setVideoLeft(false)}
+                        style={{
+                          marginTop: 8,
+                          padding: '6px 14px',
+                          background: 'var(--accent-primary)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          fontSize: 12,
+                          fontWeight: '600'
+                        }}
+                      >
+                        Join Video Call
+                      </button>
                     </div>
+
                   ) : (
                     <VideoCall
                       sessionId={sessionId}
@@ -1203,9 +1212,27 @@ export default function Room() {
                 />
               </div>
             ) : (isCompleted || ending || videoLeft) ? (
-              <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-                Video Call Ended
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'center', background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+                <span>Video Call Ended</span>
+                {!isCompleted && !ending && (
+                  <button
+                    onClick={() => setVideoLeft(false)}
+                    style={{
+                      padding: '4px 10px',
+                      background: 'var(--accent-primary)',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      fontWeight: '600'
+                    }}
+                  >
+                    Start Call
+                  </button>
+                )}
               </div>
+
             ) : (
               <div style={{ background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 8, padding: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
                 Connecting to video...
@@ -1611,429 +1638,150 @@ const candidateVideoCol = {
 //   displayName – label shown in the local video tile
 //   onLeft      – callback fired when the user clicks Hang Up
 
-const STUN = {
-  iceServers: [
-    { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
-  ],
-  iceCandidatePoolSize: 10,
-};
-
-function VideoCall({ sessionId, role, displayName, remoteDisplayName = 'Remote', onLeft }) {
-  const localRef = useRef(null);
-  const remoteRef = useRef(null);
-  const pcRef = useRef(null);
-  const streamRef = useRef(null);
-  const remoteStreamRef = useRef(null);
-
-  const [status, setStatus] = useState('init');  // init|connecting|connected|error
-  const [errMsg, setErrMsg] = useState('');
-  const [errHint, setErrHint] = useState('');
-  const [retryKey, setRetryKey] = useState(0);        // bump to retry without page reload
-  const [muted, setMuted] = useState(false);
-  const [camOff, setCamOff] = useState(false);
-  const [audioOnly, setAudioOnly] = useState(false);
-  const [hasLocalVideo, setHasLocalVideo] = useState(false);
-  const [hasLocalAudio, setHasLocalAudio] = useState(false);
-  const [remoteVideoActive, setRemoteVideoActive] = useState(false);
-
+function VideoCall({ sessionId, role, displayName, onLeft }) {
+  const containerRef = useRef(null);
+  const jitsiApiRef = useRef(null);
+  const [jitsiReady, setJitsiReady] = useState(false);
+  const [jitsiError, setJitsiError] = useState('');
   const isInterviewer = role === 'interviewer';
 
-  // Helper to extract initials for MS Teams style placeholder avatars
-  const getInitials = (name) => {
-    if (!name) return '?';
-    const clean = name.replace(/[^a-zA-Z0-9\s]/g, '').trim();
-    const parts = clean.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    if (parts.length === 1 && parts[0].length > 0) {
-      return parts[0].slice(0, 2).toUpperCase();
-    }
-    return '?';
-  };
-
+  // Keep stable reference to onLeft to prevent iframe from restarting on parent re-renders
+  const onLeftRef = useRef(onLeft);
   useEffect(() => {
-    if (!sessionId) return;
-    let unsubAnswer = null, unsubAnswerCands = null, unsubOfferCands = null, unsubRoom = null;
-    setStatus('init');
-    setErrMsg('');
-    setErrHint('');
-    setHasLocalVideo(false);
-    setHasLocalAudio(false);
-    setAudioOnly(false);
-    setRemoteVideoActive(false);
+    onLeftRef.current = onLeft;
+  }, [onLeft]);
 
-    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
-    const offerCandsRef = collection(db, 'sessions', sessionId, 'videoRoom', 'room', 'offerCandidates');
-    const answerCandsRef = collection(db, 'sessions', sessionId, 'videoRoom', 'room', 'answerCandidates');
 
-    const run = async () => {
-      // ── 1. Acquire local media (optional fallback if denied) ─────────────────
-      let localStream = null;
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setHasLocalVideo(true);
-        setHasLocalAudio(true);
-      } catch (e) {
-        console.warn("[VideoCall] Could not acquire camera/mic, trying fallback...", e.name || e.message);
-        // Fallback: try audio only
-        try {
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          setAudioOnly(true);
-          setHasLocalAudio(true);
-        } catch (audioErr) {
-          console.warn("[VideoCall] Microphone also denied or unavailable. Joining in receive-only mode.");
-        }
-      }
+  // 1. Load Jitsi script and poll until window.JitsiMeetExternalAPI is a constructor
+  useEffect(() => {
+    let pollInterval = null;
 
-      // ── 2. Create peer connection ──────────────────────────────────────────
-      const pc = new RTCPeerConnection(STUN);
-      pcRef.current = pc;
-
-      if (localStream) {
-        streamRef.current = localStream;
-        if (localRef.current) localRef.current.srcObject = localStream;
-        localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-      } else {
-        // No local tracks — explicitly request to receive audio and video from the other side
-        try {
-          pc.addTransceiver('audio', { direction: 'recvonly' });
-          pc.addTransceiver('video', { direction: 'recvonly' });
-        } catch (transceiverErr) {
-          console.warn("[VideoCall] Failed to add transceivers:", transceiverErr);
-        }
-      }
-
-      // Listen for connection state changes
-      pc.onconnectionstatechange = () => {
-        console.log("[VideoCall] Connection state:", pc.connectionState);
-        if (pc.connectionState === 'connected') {
-          setStatus('connected');
-        } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
-          if (!isInterviewer && onLeft) {
-            onLeft();
-          }
-        }
-      };
-
-      // ── 3. Wire up remote stream ───────────────────────────────────────────
-      const remoteStream = new MediaStream();
-      remoteStreamRef.current = remoteStream;
-
-      const candidatesQueue = [];
-      const addCandidate = (cand) => {
-        const ice = new RTCIceCandidate(cand);
-        if (pc.remoteDescription) {
-          pc.addIceCandidate(ice).catch(err => console.warn("[VideoCall] Error adding ICE candidate:", err));
-        } else {
-          candidatesQueue.push(ice);
-        }
-      };
-      const flushCandidates = () => {
-        while (candidatesQueue.length > 0) {
-          const ice = candidatesQueue.shift();
-          pc.addIceCandidate(ice).catch(err => console.warn("[VideoCall] Error adding queued ICE candidate:", err));
-        }
-      };
-
-      pc.ontrack = e => {
-        const stream = e.streams[0];
-        stream.getTracks().forEach(t => remoteStream.addTrack(t));
-        if (remoteRef.current) remoteRef.current.srcObject = remoteStream;
-
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-          setRemoteVideoActive(true); // Default to active on arrival
-          videoTrack.onmute = () => setRemoteVideoActive(false);
-          videoTrack.onunmute = () => setRemoteVideoActive(true);
-        }
-        setStatus('connected');
-      };
-
-      if (isInterviewer) {
-        // ── CALLER (interviewer) ─────────────────────────────────────────────
-        pc.onicecandidate = e => {
-          if (e.candidate) addDoc(offerCandsRef, e.candidate.toJSON());
-        };
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        await setDoc(roomDocRef, { offer: { type: offer.type, sdp: offer.sdp } });
-        setStatus('connecting');
-
-        unsubAnswer = onSnapshot(roomDocRef, async snap => {
-          const data = snap.data();
-          if (data?.answer && !pc.currentRemoteDescription) {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
-            flushCandidates();
-          }
-        });
-        unsubAnswerCands = onSnapshot(answerCandsRef, snap => {
-          snap.docChanges().forEach(ch => {
-            if (ch.type === 'added') addCandidate(ch.doc.data());
-          });
-        });
-
-      } else {
-        // ── CALLEE (candidate) ───────────────────────────────────────────────
-        pc.onicecandidate = e => {
-          if (e.candidate) addDoc(answerCandsRef, e.candidate.toJSON());
-        };
-
-        // Callee listens to room doc for interviewer leaving or offer submission
-        unsubRoom = onSnapshot(roomDocRef, async (snap) => {
-          const data = snap.data();
-          if (!data) return;
-
-          if (data.interviewerLeft) {
-            if (onLeft) onLeft();
-            return;
-          }
-
-          if (data.offer && !pc.currentRemoteDescription) {
-            await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-            flushCandidates();
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            await updateDoc(roomDocRef, { answer: { type: answer.type, sdp: answer.sdp } });
-            setStatus('connecting');
-          }
-        });
-
-        unsubOfferCands = onSnapshot(offerCandsRef, snap => {
-          snap.docChanges().forEach(ch => {
-            if (ch.type === 'added') addCandidate(ch.doc.data());
-          });
-        });
+    const checkReady = () => {
+      if (typeof window.JitsiMeetExternalAPI === 'function') {
+        clearInterval(pollInterval);
+        setJitsiReady(true);
       }
     };
 
-    run().catch(e => {
-      console.error("[VideoCall] Setup error:", e);
-      setStatus('error');
-      setErrMsg(e.message || 'Call initialization failed.');
-      setErrHint('');
+    if (typeof window.JitsiMeetExternalAPI === 'function') {
+      setJitsiReady(true);
+      return;
+    }
+
+    if (!document.querySelector('script[src*="external_api.js"]')) {
+      const script = document.createElement('script');
+      script.src = 'https://meet.element.io/external_api.js';
+      script.setAttribute('data-jitsi', '1');
+      script.async = true;
+      document.body.appendChild(script);
+    }
+
+    pollInterval = setInterval(checkReady, 200);
+
+    const timeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      setJitsiError('Video conference service took too long to load. Please refresh the page.');
+    }, 15000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  // 2. Initialize Jitsi once the API constructor is available
+  useEffect(() => {
+    if (!jitsiReady || !containerRef.current || !sessionId) return;
+    if (typeof window.JitsiMeetExternalAPI !== 'function') return;
+
+    containerRef.current.innerHTML = '';
+
+    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
+    if (isInterviewer) {
+      setDoc(roomDocRef, { interviewerLeft: false }).catch(() => {});
+    }
+
+    let api;
+    try {
+      api = new window.JitsiMeetExternalAPI('meet.element.io', {
+        roomName: `sdet-challenge-${sessionId}`,
+        width: '100%',
+        height: '100%',
+        parentNode: containerRef.current,
+        userInfo: { displayName },
+        configOverwrite: {
+          prejoinPageEnabled: false,
+          startWithAudioMuted: false,
+          startWithVideoMuted: true,
+          disableDeepLinking: true,
+          disableInviteFunctions: true,
+          hideConferenceSubject: true,
+          toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings'],
+        },
+        interfaceConfigOverwrite: {
+          SHOW_JITSI_WATERMARK: false,
+          SHOW_WATERMARK_FOR_GUESTS: false,
+          SHOW_BRAND_WATERMARK: false,
+          HIDE_INVITE_MORE_HEADER: true,
+        },
+      });
+    } catch (err) {
+      console.error('[VideoCall] Failed to initialize Jitsi:', err);
+      setJitsiError('Could not start video conference. ' + err.message);
+      return;
+    }
+
+    jitsiApiRef.current = api;
+
+    api.addEventListener('videoConferenceLeft', async () => {
+      if (isInterviewer) {
+        try { await updateDoc(roomDocRef, { interviewerLeft: true }); } catch (e) {}
+      }
+      if (onLeftRef.current) onLeftRef.current();
     });
 
     return () => {
-      [unsubAnswer, unsubAnswerCands, unsubOfferCands, unsubRoom].forEach(u => u?.());
-      streamRef.current?.getTracks?.().forEach(t => t.stop());
-      pcRef.current?.close();
-      if (isInterviewer) {
-        // Mark interviewer left in Firestore on unmount/cleanup
-        updateDoc(roomDocRef, { interviewerLeft: true }).catch(() => { });
-      }
+      try { api.dispose(); } catch (e) {}
+      jitsiApiRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId, role, retryKey]);
+  }, [jitsiReady, sessionId, displayName, isInterviewer]);
 
-  const toggleMic = () => {
-    const t = streamRef.current?.getAudioTracks()[0];
-    if (t) { t.enabled = !t.enabled; setMuted(m => !m); }
-  };
-  const toggleCam = () => {
-    const t = streamRef.current?.getVideoTracks()[0];
-    if (t) { t.enabled = !t.enabled; setCamOff(c => !c); }
-  };
-  const hangUp = async () => {
-    streamRef.current?.getTracks?.().forEach(t => t.stop());
-    pcRef.current?.close();
-    if (isInterviewer) {
-      try {
-        await updateDoc(doc(db, 'sessions', sessionId, 'videoRoom', 'room'), { interviewerLeft: true });
-      } catch (e) { }
-    }
-    if (onLeft) onLeft();
-  };
-  const retry = () => {
-    streamRef.current?.getTracks?.().forEach(t => t.stop());
-    pcRef.current?.close();
-    setRetryKey(k => k + 1);
-  };
 
-  const isError = status === 'error';
-  const showRemoteVideo = status === 'connected' && remoteVideoActive;
-
-  // Sync local stream to video element when it becomes visible
-  // (conditional render means localRef.current is null during initial getUserMedia call)
+  // 3. Candidate: listen for interviewer leaving via Firestore
   useEffect(() => {
-    if (hasLocalVideo && !camOff && localRef.current && streamRef.current) {
-      localRef.current.srcObject = streamRef.current;
-    }
-  }, [hasLocalVideo, camOff]);
+    if (!sessionId || isInterviewer) return;
+    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
+    const unsub = onSnapshot(roomDocRef, (snap) => {
+      if (snap.data()?.interviewerLeft && onLeftRef.current) {
+        onLeftRef.current();
+      }
+    });
+    return () => unsub();
+  }, [sessionId, isInterviewer]);
 
-  // Sync remote stream when the remote video element mounts
-  useEffect(() => {
-    if (showRemoteVideo && remoteRef.current && remoteStreamRef.current) {
-      remoteRef.current.srcObject = remoteStreamRef.current;
-    }
-  }, [showRemoteVideo]);
 
   return (
-    <div style={{ position: 'relative', background: '#111214', width: '100%', aspectRatio: '16/9', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }}>
-
-      {/* Remote Video Stream / Placeholder */}
-      {showRemoteVideo ? (
-        <video ref={remoteRef} autoPlay playsInline
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      ) : (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1f2023', color: '#fff' }}>
-          <div style={{
-            width: 84, height: 84, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 28, fontWeight: 700, letterSpacing: 1,
-            boxShadow: '0 8px 24px rgba(0,0,0,0.4)', marginBottom: 12,
-            border: '2px solid rgba(255,255,255,0.1)'
-          }}>
-            {getInitials(remoteDisplayName)}
-          </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)' }}>
-            {remoteDisplayName}
-          </span>
-          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>
-            {status === 'connected' ? 'Camera is turned off' : 'Connecting to session...'}
-          </span>
+    <div style={{ width: '100%', aspectRatio: '16/9', background: '#111214', position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
+      {jitsiError ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: 12, padding: 24, zIndex: 10 }}>
+          <AlertTriangle size={32} style={{ color: '#fbbf24' }} />
+          <p style={{ textAlignment: 'center', fontSize: 13, color: 'rgba(255,255,255,0.7)', maxWidth: 300 }}>{jitsiError}</p>
+          <button onClick={() => { setJitsiError(''); setJitsiReady(false); setTimeout(() => setJitsiReady(true), 100); }} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: '#5b5fc7', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            Retry
+          </button>
         </div>
-      )}
-
-      {/* Local Video PIP card in bottom-right (always visible, shows placeholder if camera is off) */}
-      <div style={{
-        position: 'absolute', bottom: 16, right: 16,
-        width: '24%', maxWidth: 160, minWidth: 100, aspectRatio: '16/9',
-        borderRadius: 8, overflow: 'hidden',
-        border: '1.5px solid rgba(255,255,255,0.12)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
-        background: '#1c1c1e',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 5
-      }}>
-        {hasLocalVideo && !camOff ? (
-          <video ref={localRef} autoPlay playsInline muted
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#8e8e93' }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: '50%',
-              background: 'linear-gradient(135deg, #7b7de5 0%, #5b5fc7 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 14, fontWeight: 600, color: '#fff',
-              border: '1.5px solid rgba(255,255,255,0.1)'
-            }}>
-              {getInitials(displayName)}
-            </div>
-            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
-              You
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Top Left Participant Name Tag */}
-      <div style={{
-        position: 'absolute', top: 16, left: 16,
-        background: 'rgba(18, 18, 20, 0.72)',
-        padding: '5px 12px', borderRadius: 6,
-        fontSize: 12, color: '#fff', fontWeight: 500,
-        backdropFilter: 'blur(10px)',
-        border: '1px solid rgba(255,255,255,0.06)',
-      }}>
-        {remoteDisplayName}
-      </div>
-
-      {/* Status / error overlay */}
-      {(status !== 'connected' || isError) && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-          background: isError ? 'rgba(0,0,0,0.85)' : 'rgba(0,0,0,0.65)',
-          color: '#fff', textAlign: 'center', padding: 20, gap: 12,
-          zIndex: 8
-        }}>
-          {isError ? (
-            <>
-              <AlertTriangle size={36} style={{ color: '#fbbf24', marginBottom: 4 }} />
-              <strong style={{ fontSize: 14, color: '#fca5a5' }}>{errMsg}</strong>
-              {errHint && (
-                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', maxWidth: 300, margin: 0, lineHeight: 1.5 }}>
-                  {errHint}
-                </p>
-              )}
-              <button onClick={retry} style={{
-                marginTop: 8, padding: '8px 20px', borderRadius: 20, border: 'none',
-                background: '#5b5fc7', color: '#fff', fontWeight: 700, cursor: 'pointer', fontSize: 12,
-                display: 'flex', alignItems: 'center', gap: 6,
-                boxShadow: '0 4px 12px rgba(91,95,199,0.3)', transition: 'transform 0.1s'
-              }}>
-                <RefreshCw size={12} /> Retry
-              </button>
-            </>
-          ) : (
-            <span style={{
-              fontSize: 12, background: 'rgba(0,0,0,0.4)', padding: '6px 14px', borderRadius: 20,
-              border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)',
-              display: 'flex', alignItems: 'center', gap: 8
-            }}>
-              <RefreshCw size={12} className="animate-spin" style={{ animation: 'spin 1.5s linear infinite' }} />
-              {status === 'init'
-                ? 'Starting camera…'
-                : isInterviewer
-                  ? 'Waiting for candidate to join…'
-                  : 'Connecting to interviewer…'}
-            </span>
-          )}
+      ) : !jitsiReady ? (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, gap: 8, zIndex: 5 }}>
+          <RefreshCw size={14} style={{ animation: 'spin 1.5s linear infinite' }} />
+          Loading video conference…
         </div>
-      )}
-
-      {/* Teams-Style Call Control Bar overlay */}
-      <div style={{
-        position: 'absolute', bottom: 16, left: '50%', transform: 'translateX(-50%)',
-        display: 'flex', alignItems: 'center', gap: 10,
-        padding: '6px 14px', borderRadius: 30,
-        background: 'rgba(25, 26, 28, 0.9)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        backdropFilter: 'blur(16px)',
-        boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-        zIndex: 10
-      }}>
-        {hasLocalAudio ? (
-          <button onClick={toggleMic} title={muted ? 'Unmute' : 'Mute'} style={teamsBtn(muted, '#fff', 'rgba(255,255,255,0.12)', '#ef4444')}>
-            {muted ? <MicOff size={18} /> : <Mic size={18} />}
-          </button>
-        ) : (
-          <button disabled title="Microphone unavailable" style={teamsBtn(true, 'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.05)')}>
-            <MicOff size={18} />
-          </button>
-        )}
-
-        {hasLocalVideo ? (
-          <button onClick={toggleCam} title={camOff ? 'Camera on' : 'Camera off'} style={teamsBtn(camOff, '#fff', 'rgba(255,255,255,0.12)', '#ef4444')}>
-            {camOff ? <VideoOff size={18} /> : <Video size={18} />}
-          </button>
-        ) : (
-          <button disabled title="Camera unavailable" style={teamsBtn(true, 'rgba(255,255,255,0.2)', 'rgba(255,255,255,0.05)')}>
-            <VideoOff size={18} />
-          </button>
-        )}
-
-        <button onClick={hangUp} title="Hang up" style={teamsBtn(false, '#fff', '#d93025', '#d93025', true)}>
-          <PhoneOff size={18} style={{ transform: 'rotate(135deg)' }} />
-        </button>
-      </div>
+      ) : null}
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
     </div>
   );
 }
 
-const teamsBtn = (active, color, normalBg, activeBg, isHangUp = false) => ({
-  width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
-  background: active ? (activeBg || '#ef4444') : normalBg,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  color: color, transition: 'all 0.2s ease',
-  boxShadow: isHangUp ? '0 4px 10px rgba(217,48,37,0.3)' : 'none',
-  ':hover': {
-    transform: 'scale(1.05)',
-    background: active ? activeBg : 'rgba(255,255,255,0.2)'
-  }
-});
+
+
 
 

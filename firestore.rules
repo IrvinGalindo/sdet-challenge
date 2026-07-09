@@ -157,11 +157,12 @@ service cloud.firestore {
         allow delete: if isStaff();
       }
 
-      // ── sessions/{id}/videoRoom — WebRTC signaling ──────────────────────
-      // Used by the VideoCall component to exchange SDP offer/answer and
-      // ICE candidates between interviewer and candidate.
+      // ── sessions/{id}/videoRoom — Jitsi signaling (interviewerLeft flag) ──
+      // Only staff can write — prevents a candidate from faking interviewerLeft.
+      // Both parties can read so candidates detect when the interviewer leaves.
       match /videoRoom/{vdoc} {
-        allow read, write: if isAuthed();
+        allow read:  if isAuthed();
+        allow write: if isStaff();
         match /offerCandidates/{cid}  { allow read, write: if isAuthed(); }
         match /answerCandidates/{cid} { allow read, write: if isAuthed(); }
       }
