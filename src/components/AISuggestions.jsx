@@ -21,7 +21,7 @@ export default function AISuggestions({ suggestions, busy, customBusy }) {
         <div style={busyRow}>
           <span style={spinner} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {customBusy ? t('aiSuggestions.loadingCustom', 'Claude is thinking…') : t('aiSuggestions.loading')}
+            {customBusy ? t('aiSuggestions.loadingCustom', 'Presto is thinking…') : t('aiSuggestions.loading')}
           </span>
         </div>
       )}

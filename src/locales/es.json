@@ -206,7 +206,7 @@
       "correct": "✓ Correcto",
       "incorrect": "✗ Incorrecto"
     },
-    "footer": "Generado por Plataforma de Entrevistas IA",
+    "footer": "Generado por Presto AI",
     "hiringRecommendation": {
       "proceed": "PROCEDER",
       "hold": "EN ESPERA",
@@ -257,9 +257,15 @@
     "candidateRoom": "Sala del Candidato",
     "ending": "Terminando…",
     "closingSession": "Cerrando sesión…",
-    "generatingReport": "Generando reporte…",
+    "generatingReport": "Generando Reporte con IA…",
     "savingReport": "Guardando reporte…",
     "runningBiasAudit": "Ejecutando auditoría de sesgo…",
+    "endingOverlayDesc": {
+      "evaluating": "Ejecutando la evaluación con IA — esto suele tardar entre 20 y 40 segundos.\nPor favor no cierres esta ventana.",
+      "saving": "Guardando el reporte en la base de datos…",
+      "auditing": "Ejecutando auditoría de sesgo sobre la evaluación — casi listo.",
+      "closing": "Cerrando la sesión y notificando al candidato…"
+    },
     "viewReportBtn": "Ver Reporte →",
     "generateReportBtn": "Generar Reporte",
     "interviewEnded": "Esta entrevista ha terminado.",
@@ -278,7 +284,12 @@
     "submitted": "✓ enviado",
     "pending": "⏳ pendiente",
     "selected": "Seleccionado:",
-    "aiCopilot": "Co-piloto de IA",
+    "aiCopilot": "Asistente Presto",
+    "prestoSuggestions": "Sugerencias de Presto",
+    "askPresto": "Preguntar a Presto",
+    "prestoThinking": "Presto está pensando…",
+    "askPrestoAnything": "Preguntar a Presto lo que sea",
+    "sendToPresto": "Enviar a Presto →",
     "liveTranscript": "Transcripción en Vivo",
     "video": "Video",
     "videoEmbedPlaceholder": "El embed de Jitsi / Daily.co se implementa en la Fase 2c.",
@@ -296,6 +307,8 @@
       "mutedText": "🔇 Silenciado",
       "liveText": "🎤 En vivo"
     },
+    "micActive": "Transcripción Activa",
+    "micInactive": "Transcripción Silenciada/Inactiva",
     "micStatus": {
       "unsupported": "Web Speech API no es compatible con este navegador",
       "muted": "Transcripción silenciada",
@@ -327,6 +340,14 @@
       "email": "Correo:",
       "started": "Iniciada:",
       "expires": "Expira:"
+    },
+    "cvAnalysis": {
+      "title": "Análisis de CV (Pre-evaluación)",
+      "fitScore": "Puntaje de Ajuste",
+      "strengths": "Fortalezas Clave",
+      "redFlags": "Señales de Alerta",
+      "claimedTech": "Tecnologías Declaradas",
+      "questionsToVerify": "Claims a Verificar en Esta Entrevista"
     }
   },
 
@@ -526,6 +547,11 @@
     "candidateEmailLabel": "Correo del candidato (opcional)",
     "candidateEmailPlaceholder": "maria@ejemplo.com",
     "ttlHint": "Se generarán dos enlaces únicos, válidos por {{hours}} horas. Deberás compartir el enlace del candidato manualmente (Slack, correo, etc.).",
+    "ttlHint2": "Se generarán dos enlaces únicos, válidos hasta el final del día de la entrevista. Comparte el enlace del candidato por Slack, correo, etc.",
+    "interviewDateLabel": "Fecha de Entrevista *",
+    "interviewTimeLabel": "Hora de Inicio",
+    "dateInPastError": "La fecha no puede ser en el pasado.",
+    "validUntilDate": "Válida hasta el final del {{date}}.",
     "creating": "Creando…",
     "createSession": "Crear Sesión",
     "success": "✓ Sesión creada.",
@@ -534,7 +560,18 @@
     "openRoomBtn": "Abrir mi sala →",
     "copied": "✓ Copiado",
     "copy": "Copiar",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "cvLabel": "CV / Currículum del candidato *",
+    "cvHint": "Clic para subir CV (requerido para pre-evaluación de IA)",
+    "cvRequired": "Por favor, adjunta el CV del candidato antes de crear la sesión.",
+    "cvTypeError": "Tipo de archivo no soportado. Sube un PDF o archivo .txt.",
+    "cvEmptyError": "No se pudo extraer texto del CV. Intenta con otro archivo.",
+    "cvAnalysisError": "El análisis del CV falló. Por favor, inténtalo de nuevo.",
+    "cvExtracting": "Leyendo texto del CV…",
+    "cvAnalyzing": "Analizando CV con Presto…",
+    "cvAnalyzed": "CV analizado",
+    "cvFitScore": "Puntaje de Ajuste",
+    "cvRedFlags": "señal(es) de alerta"
   },
 
   "audit": {
@@ -660,7 +697,7 @@
   "aiSuggestions": {
     "title": "Sugerencias de IA",
     "loading": "La IA está leyendo la conversación…",
-    "loadingCustom": "Claude está pensando…",
+    "loadingCustom": "Presto está pensando…",
     "customBadge": "Preguntaste",
     "noSuggestions": "Sin sugerencias aún.",
     "noSuggestionsYet": "Las sugerencias aparecen una vez que hay algunos intercambios para analizar.",

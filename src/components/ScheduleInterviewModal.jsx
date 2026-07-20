@@ -1,47 +1,144 @@
-import React, { useMemo, useState } from 'react';
-import { db } from '../firebase';
+import React, { useMemo, useRef, useState } from 'react';
+import { db, callAnalyzeCV } from '../firebase';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
+import { Upload, CheckCircle, AlertCircle, Loader, X } from 'lucide-react';
 
-// Modal that creates a sessions/{id} doc and shows the resulting interviewer
-// + candidate links for the HR user to copy.
+const MAX_CV_CHARS = 15_000;
 
-const SESSION_TTL_HOURS = 3; // matches locked decision #8
+// Returns 'YYYY-MM-DD' in local time
+function toLocalDateStr(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+// Returns Timestamp at 23:59:59 local time on the given 'YYYY-MM-DD' string
+function endOfDayTimestamp(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const eod = new Date(y, m - 1, d, 23, 59, 59, 999);
+  return Timestamp.fromMillis(eod.getTime());
+}
 
 function randomToken() {
-  // crypto.randomUUID is available in CRA's modern target browsers.
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
     return crypto.randomUUID().replace(/-/g, '');
   }
-  // Fallback: 24 hex chars from random.
   return Array.from({ length: 24 }, () =>
     Math.floor(Math.random() * 16).toString(16)
   ).join('');
+}
+
+async function extractPdfText(file) {
+  const pdfjsLib = await import('pdfjs-dist');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.mjs',
+    import.meta.url
+  ).href;
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const textParts = [];
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(' ');
+    textParts.push(pageText);
+  }
+  return textParts.join('\n');
 }
 
 export default function ScheduleInterviewModal({ position, currentUser, onClose, onCreated }) {
   const { t } = useTranslation();
   const [name, setName]   = useState('');
   const [email, setEmail] = useState('');
+  const [interviewDate, setInterviewDate] = useState(toLocalDateStr(new Date())); // 'YYYY-MM-DD'
+  const [interviewTime, setInterviewTime] = useState('10:00'); // HH:MM, just for display
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
-  const [created, setCreated] = useState(null); // { id, interviewerUrl, candidateUrl }
+  const [created, setCreated] = useState(null);
+
+  const [cvFile, setCvFile]         = useState(null);
+  const [cvText, setCvText]         = useState('');
+  const [cvAnalysis, setCvAnalysis] = useState(null);
+  const [cvStatus, setCvStatus]     = useState('idle');
+  const [cvError, setCvError]       = useState(null);
+  const fileInputRef = useRef(null);
 
   const challengeOrder = useMemo(
     () => Array.isArray(position.challenges) ? position.challenges.map(c => c.id) : [],
     [position.challenges]
   );
 
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isPdf = file.type === 'application/pdf';
+    const isTxt = file.type === 'text/plain' || file.name.endsWith('.txt');
+    if (!isPdf && !isTxt) {
+      setCvError(t('schedule.cvTypeError'));
+      return;
+    }
+    setCvFile(file);
+    setCvError(null);
+    setCvAnalysis(null);
+    setCvText('');
+    setCvStatus('extracting');
+    try {
+      let text = '';
+      if (isPdf) {
+        text = await extractPdfText(file);
+      } else {
+        text = await file.text();
+      }
+      if (!text.trim()) {
+        setCvError(t('schedule.cvEmptyError'));
+        setCvStatus('error');
+        return;
+      }
+      const trimmed = text.slice(0, MAX_CV_CHARS);
+      setCvText(trimmed);
+      setCvStatus('analyzing');
+      const analysis = await callAnalyzeCV({
+        cvText: trimmed,
+        position: position
+          ? { title: position.title, seniority: position.seniority, techStack: position.techStack, softSkills: position.softSkills }
+          : null,
+      });
+      setCvAnalysis(analysis);
+      setCvStatus('done');
+    } catch (err) {
+      console.error('CV analysis failed:', err);
+      setCvError(err.message || t('schedule.cvAnalysisError'));
+      setCvStatus('error');
+    }
+  };
+
+  const handleRemoveCv = () => {
+    setCvFile(null);
+    setCvText('');
+    setCvAnalysis(null);
+    setCvStatus('idle');
+    setCvError(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
+    if (!cvText) { setError(t('schedule.cvRequired')); return; }
     setCreating(true);
     setError(null);
     try {
       const interviewerToken = randomToken();
       const candidateToken   = randomToken();
-      const expiresAt = Timestamp.fromMillis(Date.now() + SESSION_TTL_HOURS * 3600 * 1000);
-
+      // Session is valid until end-of-day (23:59:59) on the selected interview date
+      const expiresAt = endOfDayTimestamp(interviewDate);
+      if (expiresAt.toMillis() < Date.now()) {
+        setError(t('schedule.dateInPastError'));
+        setCreating(false);
+        return;
+      }
       const ref = await addDoc(collection(db, 'sessions'), {
         positionId:          position.id,
         positionTitle:       position.title || '',
@@ -49,24 +146,37 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
         candidateEmail:      email.trim() || null,
         interviewerId:       currentUser.uid,
         status:              'scheduled',
-        phase:               'intro', // 'intro' → 'questions' → 'challenges' controlled by interviewer
+        phase:               'intro',
         currentQuestionIdx:  0,
         interviewerToken,
         candidateToken,
         candidateAuthUid:    null,
         scheduledAt:         serverTimestamp(),
+        interviewDate:       interviewDate,        // 'YYYY-MM-DD' — the intended day
+        interviewTime:       interviewTime || null, // 'HH:MM' — display only
         expiresAt,
         startedAt:           null,
         endedAt:             null,
         challengeOrder,
         createdAt:           serverTimestamp(),
+        cvText:     cvText || null,
+        cvAnalysis: cvAnalysis
+          ? {
+              summary:           cvAnalysis.summary,
+              claimedTechStack:  cvAnalysis.claimedTechStack,
+              claimedExperience: cvAnalysis.claimedExperience,
+              keyStrengths:      cvAnalysis.keyStrengths,
+              redFlags:          cvAnalysis.redFlags,
+              questionsToVerify: cvAnalysis.questionsToVerify,
+              fitScore:          cvAnalysis.fitScore,
+              fitRationale:      cvAnalysis.fitRationale,
+            }
+          : null,
       });
-
       const base = window.location.origin;
       const interviewerUrl = `${base}/room?session=${ref.id}&role=interviewer&token=${interviewerToken}`;
       const candidateUrl   = `${base}/room?session=${ref.id}&role=candidate&token=${candidateToken}`;
-
-      setCreated({ id: ref.id, interviewerUrl, candidateUrl });
+      setCreated({ id: ref.id, interviewerUrl, candidateUrl, interviewDate });
       onCreated?.(ref.id);
     } catch (err) {
       console.error(err);
@@ -76,12 +186,16 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
     }
   };
 
+  const isBusy = cvStatus === 'extracting' || cvStatus === 'analyzing';
+  const today = toLocalDateStr(new Date());
+  const canSubmit = !creating && name.trim() && cvText && !isBusy && interviewDate >= today;
+
   return (
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0 }}>{t('schedule.title')}</h3>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <button onClick={onClose} style={closeBtn}>&#x2715;</button>
         </div>
 
         {!created && (
@@ -101,8 +215,88 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
                 style={input} placeholder={t('schedule.candidateEmailPlaceholder')}
               />
             </Field>
+
+            {/* ── Interview Date & Time ───────────────────────────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 10, marginBottom: 12 }}>
+              <Field label={t('schedule.interviewDateLabel')}>
+                <input
+                  type="date"
+                  value={interviewDate}
+                  min={today}
+                  onChange={e => setInterviewDate(e.target.value)}
+                  required
+                  style={{ ...input, colorScheme: 'dark' }}
+                />
+                {interviewDate < today && (
+                  <div style={{ fontSize: 11, color: 'var(--accent-danger)', marginTop: 3 }}>
+                    {t('schedule.dateInPastError')}
+                  </div>
+                )}
+              </Field>
+              <Field label={t('schedule.interviewTimeLabel')}>
+                <input
+                  type="time"
+                  value={interviewTime}
+                  onChange={e => setInterviewTime(e.target.value)}
+                  style={{ ...input, colorScheme: 'dark' }}
+                />
+              </Field>
+            </div>
+
+            <Field label={t('schedule.cvLabel')}>
+              {(cvStatus === 'idle' || cvStatus === 'error') ? (
+                <label style={uploadZone}>
+                  <Upload size={18} style={{ marginBottom: 4, opacity: 0.7 }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('schedule.cvHint')}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>.pdf or .txt</span>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.txt,application/pdf,text/plain"
+                    onChange={handleFileChange}
+                    style={{ display: 'none' }}
+                  />
+                </label>
+              ) : (
+                <div style={cvStatusBox}>
+                  {isBusy && (
+                    <>
+                      <Loader size={16} style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                        {cvStatus === 'extracting' ? t('schedule.cvExtracting') : t('schedule.cvAnalyzing')}
+                      </span>
+                    </>
+                  )}
+                  {cvStatus === 'done' && cvAnalysis && (
+                    <>
+                      <CheckCircle size={16} style={{ color: 'var(--accent-success)', flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, color: 'var(--accent-success)', fontWeight: 600 }}>
+                          {t('schedule.cvAnalyzed')} &mdash; {t('schedule.cvFitScore')}: {cvAnalysis.fitScore}/5
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{cvFile?.name}</div>
+                        {cvAnalysis.redFlags?.length > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--accent-warning)', marginTop: 4 }}>
+                            &#9888; {cvAnalysis.redFlags.length} {t('schedule.cvRedFlags')}
+                          </div>
+                        )}
+                      </div>
+                      <button type="button" onClick={handleRemoveCv} style={removeCvBtn}>
+                        <X size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+              {cvError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 12, color: 'var(--accent-danger)' }}>
+                  <AlertCircle size={13} /> {cvError}
+                </div>
+              )}
+            </Field>
+
             <p style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, margin: '12px 0' }}>
-              {t('schedule.ttlHint', { hours: SESSION_TTL_HOURS })}
+              {t('schedule.ttlHint2')}
             </p>
             {error && (
               <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid var(--accent-danger)', color: 'var(--accent-danger)', padding: '8px 12px', borderRadius: 6, fontSize: 13, marginBottom: 12 }}>
@@ -111,7 +305,7 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
               <button type="button" onClick={onClose} style={btnGhost}>{t('common.cancel')}</button>
-              <button type="submit" disabled={creating || !name.trim()} style={{ ...btnPrimary, opacity: !name.trim() || creating ? 0.5 : 1 }}>
+              <button type="submit" disabled={!canSubmit} style={{ ...btnPrimary, opacity: canSubmit ? 1 : 0.5 }}>
                 {creating ? t('schedule.creating') : t('schedule.createSession')}
               </button>
             </div>
@@ -122,16 +316,13 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
           <div>
             <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
               <strong style={{ color: 'var(--accent-success)' }}>{t('schedule.success')}</strong>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 8 }}>{t('schedule.validFor', { hours: SESSION_TTL_HOURS })}</span>
+              <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 8 }}>
+                {t('schedule.validUntilDate', { date: created.interviewDate })}
+              </span>
             </div>
-
-            <LinkRow label={t('schedule.candidateLinkLabel')}          url={created.candidateUrl}   accent="var(--accent-warning)" />
-
+            <LinkRow label={t('schedule.candidateLinkLabel')} url={created.candidateUrl} accent="var(--accent-warning)" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-              <button
-                onClick={() => window.open(created.interviewerUrl, '_blank')}
-                style={btnPrimary}
-              >
+              <button onClick={() => window.open(created.interviewerUrl, '_blank')} style={btnPrimary}>
                 {t('schedule.openRoomBtn')}
               </button>
               <button onClick={onClose} style={btnGhost}>{t('schedule.close')}</button>
@@ -166,11 +357,6 @@ function LinkRow({ label, url, accent }) {
   );
 }
 
-/**
- * RegenerateLinkModal — shown after regenerating a candidate link.
- * Mirrors the ScheduleInterviewModal success screen.
- * Props: url {string}, onClose {fn}
- */
 export function RegenerateLinkModal({ url, onClose }) {
   const { t } = useTranslation();
   return (
@@ -178,16 +364,13 @@ export function RegenerateLinkModal({ url, onClose }) {
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h3 style={{ margin: 0 }}>{t('positions.regenerateLinkBtn')}</h3>
-          <button onClick={onClose} style={closeBtn}>✕</button>
+          <button onClick={onClose} style={closeBtn}>&#x2715;</button>
         </div>
-
         <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
           <strong style={{ color: 'var(--accent-success)' }}>{t('positions.regenerateLinkSuccess')}</strong>
           <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 8 }}>{t('schedule.validFor', { hours: 3 })}</span>
         </div>
-
         <LinkRow label={t('schedule.candidateLinkLabel')} url={url} accent="var(--accent-warning)" />
-
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={btnGhost}>{t('schedule.close')}</button>
         </div>
@@ -205,27 +388,12 @@ function Field({ label, children }) {
   );
 }
 
-const overlay = {
-  position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  zIndex: 1000, padding: '20px',
-};
-const modal = {
-  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-  borderRadius: 10, padding: '1.5rem', width: '100%', maxWidth: 560, color: '#fff',
-  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-};
+const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' };
+const modal = { background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '1.5rem', width: '100%', maxWidth: 560, color: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' };
 const closeBtn = { background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' };
-const input = {
-  width: '100%', boxSizing: 'border-box', padding: '9px 12px',
-  background: 'var(--bg-main)', border: '1px solid var(--border-color)',
-  borderRadius: 6, color: '#fff', fontFamily: 'inherit', fontSize: 14,
-};
-const btnPrimary = {
-  padding: '10px 20px', background: 'var(--accent-primary)', color: '#fff',
-  border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
-};
-const btnGhost = {
-  padding: '10px 18px', background: 'transparent', color: 'var(--text-muted)',
-  border: '1px solid var(--border-color)', borderRadius: 6, cursor: 'pointer',
-};
+const input = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 6, color: '#fff', fontFamily: 'inherit', fontSize: 14 };
+const uploadZone = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, width: '100%', boxSizing: 'border-box', padding: '16px 12px', background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 6, cursor: 'pointer' };
+const cvStatusBox = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 6 };
+const removeCvBtn = { background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' };
+const btnPrimary = { padding: '10px 20px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer' };
+const btnGhost = { padding: '10px 18px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 6, cursor: 'pointer' };

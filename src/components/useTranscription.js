@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 
+const log = (...args) => {
+  if (import.meta.env.DEV) {
+    console.log(...args);
+  }
+};
+
 // Web Speech API hook. Captures the local microphone, fires `onFinalChunk`
 // with each finalized phrase. The hook auto-restarts recognition on the
 // transient `no-speech` / `aborted` errors Chrome throws periodically.
@@ -67,15 +73,15 @@ export function useTranscription({ enabled, lang = 'en-US', onFinalChunk }) {
     recognition.lang           = lang;
 
     recognition.onstart = () => {
-      console.log(`[Speech Engine] Speech recognition started (${lang}). Listening...`);
+      log(`[Speech Engine] Speech recognition started (${lang}). Listening...`);
       setListening(true);
     };
     recognition.onend   = () => {
-      console.log("[Speech Engine] Speech recognition stopped.");
+      log("[Speech Engine] Speech recognition stopped.");
       setListening(false);
       // Auto-restart if we're still supposed to be running.
       if (!stopped && enabledRef.current && recognitionRef.current === recognition) {
-        console.log("[Speech Engine] Auto-restarting engine...");
+        log("[Speech Engine] Auto-restarting engine...");
         try { recognition.start(); } catch (e) { console.warn("[Speech Engine] Auto-restart failed:", e.message); }
       }
     };
@@ -92,28 +98,28 @@ export function useTranscription({ enabled, lang = 'en-US', onFinalChunk }) {
       }
     };
     recognition.onresult = (event) => {
-      console.log("[Speech Engine] onresult event fired.", event.results);
+      log("[Speech Engine] onresult event fired.", event.results);
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
           const text = (result[0]?.transcript || '').trim();
-          console.log(`[Speech Engine] Result is final: "${text}"`);
+          log(`[Speech Engine] Result is final: "${text}"`);
           if (text && onFinalChunkRef.current) {
             onFinalChunkRef.current(text, result[0]?.confidence ?? null);
           }
         } else {
-          console.log(`[Speech Engine] Interim result: "${result[0]?.transcript}"`);
+          log(`[Speech Engine] Interim result: "${result[0]?.transcript}"`);
         }
       }
     };
 
     recognitionRef.current = recognition;
-    console.log(`[Speech Engine] Initializing and starting SpeechRecognition instance in ${lang}...`);
-    console.log("[Speech Hook] useEffect initialized. enabled:", enabled);
+    log(`[Speech Engine] Initializing and starting SpeechRecognition instance in ${lang}...`);
+    log("[Speech Hook] useEffect initialized. enabled:", enabled);
     try { recognition.start(); } catch (e) { console.error("[Speech Engine] Start error:", e.message); setError(e.message); }
 
     return () => {
-      console.log("[Speech Hook] useEffect cleaning up...");
+      log("[Speech Hook] useEffect cleaning up...");
       stopped = true;
       recognitionRef.current = null;
       try { recognition.stop(); } catch {}

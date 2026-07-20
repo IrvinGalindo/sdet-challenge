@@ -1,10 +1,9 @@
 import { Check, X } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { auth, db, firebaseConfig } from '../firebase';
+import { auth, db, firebaseConfig, callCreateStaff } from '../firebase';
 import { collection, query, getDocs, doc, getDoc, setDoc, deleteDoc, where, addDoc, onSnapshot } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword, updatePassword } from 'firebase/auth';
+import { updatePassword } from 'firebase/auth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ScorecardBuilder from './ScorecardBuilder';
 import QuestionsManager from './QuestionsManager';
@@ -13,12 +12,12 @@ import AuditTrail from './AuditTrail';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import OverviewAnalytics from './OverviewAnalytics';
 import AdminNavbar from './AdminNavbar';
+import { useAuth } from '../context/AuthContext';
 import './AdminDashboard.css';
 
 export default function AdminDashboard() {
   const { t } = useTranslation();
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // 'superadmin' | 'admin' | 'interviewer'
+  const { user, role, authReady } = useAuth();
   const [staffList, setStaffList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState(null);
@@ -26,10 +25,17 @@ export default function AdminDashboard() {
   const [creatorChain, setCreatorChain] = useState([]); // UIDs of admins above current user
   const { dialogProps, openConfirm } = useConfirmDialog();
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
+  const notifTimerRef = useRef(null);
+  const showNotification = useCallback((message, type = 'success') => {
+    clearTimeout(notifTimerRef.current);
+    setNotification({ message, msg: message, type });
+    notifTimerRef.current = setTimeout(() => setNotification(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    document.title = `Dashboard | Presto AI`;
+    return () => clearTimeout(notifTimerRef.current);
+  }, []);
 
   // For super admin creating an interviewer
   const [newEmail, setNewEmail] = useState('');
@@ -39,27 +45,21 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (u) => {
+    if (!authReady) return;
+    if (!user) {
+      navigate('/login');
+      return;
+    }
 
-      if (!u) {
-        navigate('/login');
-        return;
-      }
-      setUser(u);
-
+    let cancelled = false;
+    const loadDashboardData = async () => {
       try {
-        // Fetch user role + doc
-        const userDoc = await getDoc(doc(db, 'users', u.uid));
-        let currentRole = 'interviewer';
-        let userData = {};
-        if (userDoc.exists()) {
-          userData = userDoc.data();
-          currentRole = userData.role || 'interviewer';
-        }
-        setRole(currentRole);
-
         // Build creator chain for question visibility
         const chain = [];
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : {};
+        const currentRole = role || 'interviewer';
+
         if (currentRole === 'interviewer' && userData.createdBy) {
           chain.push(userData.createdBy);
           const adminDoc = await getDoc(doc(db, 'users', userData.createdBy));
@@ -69,55 +69,50 @@ export default function AdminDashboard() {
         } else if (currentRole === 'admin' && userData.createdBy) {
           chain.push(userData.createdBy);
         }
-        setCreatorChain(chain);
-
-        let myStaffIds = [];
+        if (!cancelled) setCreatorChain(chain);
 
         if (currentRole === 'superadmin') {
           const usersSnap = await getDocs(query(collection(db, 'users')));
           const loadedStaff = [];
           usersSnap.forEach(d => loadedStaff.push({ id: d.id, ...d.data() }));
-          setStaffList(loadedStaff);
+          if (!cancelled) setStaffList(loadedStaff);
         } else if (currentRole === 'admin') {
-          const usersSnap = await getDocs(query(collection(db, 'users'), where('createdBy', '==', u.uid)));
+          const usersSnap = await getDocs(query(collection(db, 'users'), where('createdBy', '==', user.uid)));
           const loadedStaff = [];
           usersSnap.forEach(d => {
             loadedStaff.push({ id: d.id, ...d.data() });
-            myStaffIds.push(d.id);
           });
-          setStaffList(loadedStaff);
+          if (!cancelled) setStaffList(loadedStaff);
         }
-
-
-
       } catch (err) {
         console.error("Dashboard fetch error:", err);
         showNotification(t('dashboard.createStaff.error', { message: err.message }), 'error');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    });
-
-    // Cleanup: unsubscribe the auth listener
-    return () => {
-      unsub();
     };
-  }, [navigate]);
+
+    loadDashboardData();
+    return () => { cancelled = true; };
+  }, [authReady, user, role, navigate, t]);
 
 
   const handleCreateInterviewer = async (e) => {
     e.preventDefault();
     try {
-      const secondaryApp = initializeApp(firebaseConfig, "SecondaryApp-" + Date.now());
-      const secondaryAuth = getAuth(secondaryApp);
-      const res = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPass);
-      await secondaryAuth.signOut();
-      await setDoc(doc(db, 'users', res.user.uid), {
+      const res = await callCreateStaff({
+        email: newEmail,
+        password: newPass,
+        apiKey: firebaseConfig.apiKey,
+      });
+
+      await setDoc(doc(db, 'users', res.uid), {
         role: newRole,
         email: newEmail,
         createdBy: user.uid,
       });
-      setStaffList(prev => [...prev, { id: res.user.uid, role: newRole, email: newEmail, createdBy: user.uid }]);
+
+      setStaffList(prev => [...prev, { id: res.uid, role: newRole, email: newEmail, createdBy: user.uid }]);
       showNotification(t('dashboard.createStaff.success', { email: newEmail, role: newRole }));
       setNewEmail('');
       setNewPass('');
@@ -142,11 +137,7 @@ export default function AdminDashboard() {
   };
 
   const [searchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || localStorage.getItem('adminActiveTab') || 'results';
-
-  useEffect(() => {
-    localStorage.setItem('adminActiveTab', activeTab);
-  }, [activeTab]);
+  const activeTab = searchParams.get('tab') || 'results';
 
   if (loading) return <div style={{ color: '#fff', padding: '2rem' }}>{t('common.loading')}</div>;
 
@@ -156,7 +147,7 @@ export default function AdminDashboard() {
       {notification && (
         <div className={`admin-toast ${notification.type}`}>
           <span>{notification.type === 'success' ? <Check size={16} style={{ color: 'var(--accent-success)' }} /> : <X size={16} style={{ color: 'var(--accent-danger)' }} />}</span>
-          {notification.message}
+          {notification.msg || notification.message}
         </div>
       )}
 

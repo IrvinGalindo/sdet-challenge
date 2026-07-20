@@ -1,5 +1,6 @@
 import { Mic } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * CandidateQAPhase — shown to the CANDIDATE in the live room during phase 1.
@@ -7,7 +8,7 @@ import React, { useEffect, useRef, useState } from 'react';
  * Displays the current interview question dictated by the interviewer (currentQIdx).
  * As the candidate speaks, live transcript chunks appear.
  */
-export default function CandidateQAPhase({ questions, currentQIdx, transcript }) {
+export default function CandidateQAPhase({ questions, currentQIdx, transcript, listening }) {
   // Chunk watermark: the transcript index at which this question started.
   const questionStartIdxRef = useRef(0);
   const [candidateText, setCandidateText] = useState('');
@@ -41,7 +42,7 @@ export default function CandidateQAPhase({ questions, currentQIdx, transcript })
 
   return (
     <div style={sectionWrap}>
-      <SectionTitle />
+      <SectionTitle listening={listening} />
 
       {/* Stepper (Read-only for candidate) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -129,14 +130,30 @@ export default function CandidateQAPhase({ questions, currentQIdx, transcript })
   );
 }
 
-function SectionTitle() {
+function SectionTitle({ listening }) {
+  const { t } = useTranslation();
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-      <h2 style={{ margin: 0, fontSize: 18 }}>Interview questions</h2>
-      <span style={{
-        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: 0.5,
-        background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
-      }}>VERBAL</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, justifyContent: 'space-between', width: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <h2 style={{ margin: 0, fontSize: 18 }}>{t('room.questions')}</h2>
+        <span style={{
+          fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 4, letterSpacing: 0.5,
+          background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
+        }}>VERBAL</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+        <span style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: listening ? 'var(--accent-success)' : 'var(--accent-danger)',
+          boxShadow: listening ? '0 0 8px var(--accent-success)' : 'none',
+          animation: listening ? 'pulse 1.5s ease-in-out infinite' : 'none',
+        }} />
+        <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>
+          {listening ? t('room.micActive') : t('room.micInactive')}
+        </span>
+      </div>
     </div>
   );
 }

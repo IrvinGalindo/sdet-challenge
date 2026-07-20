@@ -29,3 +29,6 @@ coverage/
 *.swp
 *.swo
 node
+
+# AI Agent config (uncomment to exclude from git)
+.agents/

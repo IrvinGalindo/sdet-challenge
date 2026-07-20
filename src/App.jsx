@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, Suspense, lazy } from 'react';
 import { BarChart2, User, Link as LinkIcon, Database, Bug, Trophy, BookOpen, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Routes, Route, useSearchParams, Navigate } from 'react-router-dom';
@@ -13,13 +13,15 @@ import Leaderboard from './components/Leaderboard';
 import ResultModal from './components/ResultModal';
 import QuizChallenge from './components/QuizChallenge';
 import AdminLogin from './components/AdminLogin';
-import AdminDashboard from './components/AdminDashboard';
-import CandidateProfile from './components/CandidateProfile';
-import PositionDetail from './components/PositionDetail';
 import Room from './components/Room';
-import SessionReport from './components/SessionReport';
-import CompareCandidates from './components/CompareCandidates';
+import LoadingScreen from './components/LoadingScreen';
 import './App.css';
+
+const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const CandidateProfile = lazy(() => import('./components/CandidateProfile'));
+const PositionDetail = lazy(() => import('./components/PositionDetail'));
+const SessionReport = lazy(() => import('./components/SessionReport'));
+const CompareCandidates = lazy(() => import('./components/CompareCandidates'));
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -65,17 +67,19 @@ const STAGE_ORDER = ['intro', 'restassured', 'sql', 'bugfinder', 'final'];
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<AdminLogin />} />
-      <Route path="/challenge" element={<ChallengeFlow />} />
-      <Route path="/admin" element={<AdminDashboard />} />
-      <Route path="/admin/candidate/:id" element={<CandidateProfile />} />
-      <Route path="/admin/positions/:id" element={<PositionDetail />} />
-      <Route path="/room" element={<Room />} />
-      <Route path="/admin/sessions/:id" element={<SessionReport />} />
-      <Route path="/admin/positions/:id/compare" element={<CompareCandidates />} />
-    </Routes>
+    <Suspense fallback={<LoadingScreen />}>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<AdminLogin />} />
+        <Route path="/challenge" element={<ChallengeFlow />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/admin/candidate/:id" element={<CandidateProfile />} />
+        <Route path="/admin/positions/:id" element={<PositionDetail />} />
+        <Route path="/room" element={<Room />} />
+        <Route path="/admin/sessions/:id" element={<SessionReport />} />
+        <Route path="/admin/positions/:id/compare" element={<CompareCandidates />} />
+      </Routes>
+    </Suspense>
   );
 }
 

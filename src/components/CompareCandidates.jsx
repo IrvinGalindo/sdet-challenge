@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { auth, db } from '../firebase';
 import { doc, getDoc, updateDoc, collection, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import AdminNavbar from './AdminNavbar';
+import { useAuth } from '../context/AuthContext';
 
 // Side-by-side comparison of up to 3 candidate sessions for one position.
 // Radar overlay of technical depth + recommendation grid + pros/cons.
@@ -22,7 +22,7 @@ export default function CompareCandidates() {
   const navigate = useNavigate();
   const { t } = useTranslation();
 
-  const [user, setUser] = useState(null);
+  const { user, role, authReady } = useAuth();
   const [position, setPosition] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -35,12 +35,13 @@ export default function CompareCandidates() {
   }, [params]);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => { if (!u) navigate('/login'); else setUser(u); });
-    return () => unsub();
-  }, [navigate]);
+    if (authReady && !user) {
+      navigate('/login');
+    }
+  }, [authReady, user, navigate]);
 
   useEffect(() => {
-    if (!user || !positionId) return;
+    if (!authReady || !user || !positionId) return;
     let cancelled = false;
     (async () => {
       try {

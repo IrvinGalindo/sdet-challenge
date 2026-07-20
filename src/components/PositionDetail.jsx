@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import ScheduleInterviewModal, { RegenerateLinkModal } from './ScheduleInterviewModal';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import AdminNavbar from './AdminNavbar';
+import { useAuth } from '../context/AuthContext';
 
 const SESSION_TTL_HOURS = 3;
 
@@ -26,8 +27,7 @@ export default function PositionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
+  const { user, role, authReady } = useAuth();
   const [position, setPosition] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [challenges, setChallenges] = useState([]);
@@ -111,23 +111,15 @@ export default function PositionDetail() {
 
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async u => {
-      if (!u) { navigate('/login'); return; }
-      setUser(u);
-      try {
-        const userDoc = await getDoc(doc(db, 'users', u.uid));
-        setRole(userDoc.exists() ? userDoc.data().role : 'interviewer');
-      } catch (e) {
-        setRole('interviewer');
-      }
-    });
-    return () => unsub();
-  }, [navigate]);
+    if (authReady && !user) {
+      navigate('/login');
+    }
+  }, [authReady, user, navigate]);
 
   const isAdminLike = role === 'admin' || role === 'superadmin';
 
   useEffect(() => {
-    if (!user || !id) return;
+    if (!authReady || !user || !id) return;
     let cancelled = false;
 
     getDoc(doc(db, 'positions', id)).then(snap => {
@@ -136,7 +128,11 @@ export default function PositionDetail() {
         setLoading(false);
         return;
       }
-      setPosition({ id: snap.id, ...snap.data() });
+      const data = snap.data();
+      setPosition({ id: snap.id, ...data });
+      if (data && data.title) {
+        document.title = `${data.title} | Presto AI`;
+      }
       setLoading(false);
     });
 
@@ -163,7 +159,11 @@ export default function PositionDetail() {
   if (loading) return (
     <div style={{ padding: '2rem', color: '#fff' }}>
       <AdminNavbar />
-      <div style={{ color: '#fff', padding: '2rem 0' }}>{t('positions.loading')}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6rem 0', gap: 12 }}>
+        <div style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'detail-spin 0.8s linear infinite' }} />
+        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('positions.loading')}</span>
+        <style>{`@keyframes detail-spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
     </div>
   );
   if (!position) return (

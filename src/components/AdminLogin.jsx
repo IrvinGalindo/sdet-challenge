@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../firebase';
@@ -23,6 +23,10 @@ export default function AdminLogin() {
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.title = `Login | Presto AI`;
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();

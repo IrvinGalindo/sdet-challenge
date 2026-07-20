@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, callParseJD, callGenerateQuestionBank } from '../firebase';
 import {
@@ -22,10 +22,16 @@ export default function PositionsManager({ currentUser, role }) {
   const { dialogProps, openConfirm } = useConfirmDialog();
   const [deleting, setDeleting] = useState(null); // positionId currently being deleted
 
-  const showNotification = (msg, type = 'success') => {
-    setNotification({ msg, type });
-    setTimeout(() => setNotification(null), 4000);
-  };
+  const notifTimerRef = useRef(null);
+  const showNotification = useCallback((msg, type = 'success') => {
+    clearTimeout(notifTimerRef.current);
+    setNotification({ msg, message: msg, type });
+    notifTimerRef.current = setTimeout(() => setNotification(null), 4000);
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimeout(notifTimerRef.current);
+  }, []);
 
   const isAdminLike = role === 'admin' || role === 'superadmin';
 
@@ -33,7 +39,7 @@ export default function PositionsManager({ currentUser, role }) {
     if (!currentUser) return;
     const q = isAdminLike
       ? query(collection(db, 'positions'), orderBy('createdAt', 'desc'))
-      : query(collection(db, 'positions'), where('createdBy', '==', currentUser.uid));
+      : query(collection(db, 'positions'), where('createdBy', '==', currentUser.uid), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
       const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       // Client-side sort fallback for the interviewer query (no orderBy).
@@ -140,7 +146,7 @@ export default function PositionsManager({ currentUser, role }) {
       {notification && (
         <div className={`admin-toast ${notification.type}`}>
           <span>{notification.type === 'success' ? <Check size={16} /> : <X size={16} />}</span>
-          {notification.msg}
+          {notification.msg || notification.message}
         </div>
       )}
 
@@ -175,7 +181,11 @@ export default function PositionsManager({ currentUser, role }) {
       )}
 
       {loading ? (
-        <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center' }}>{t('positions.loading')}</div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 0', gap: 12 }}>
+          <div style={{ width: 32, height: 32, border: '3px solid var(--border-color)', borderTopColor: 'var(--accent-primary)', borderRadius: '50%', animation: 'positions-spin 0.8s linear infinite' }} />
+          <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('positions.loading')}</span>
+          <style>{`@keyframes positions-spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
       ) : positions.length === 0 ? (
         <div style={{ color: 'var(--text-muted)', padding: '2rem', textAlign: 'center', border: '1px dashed var(--border-color)', borderRadius: '8px' }}>
           {t('positions.empty')}

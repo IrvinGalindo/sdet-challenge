@@ -124,7 +124,7 @@ service cloud.firestore {
 
       // ── sessions/{id}/answers/{aid} — write-once submissions ───────────
       match /answers/{aid} {
-        allow read:   if isAuthed();
+        allow read:   if isStaff() || (isAuthed() && get(/databases/$(database)/documents/sessions/$(id)).data.candidateAuthUid == request.auth.uid);
         allow create: if isAuthed()
                       && request.resource.data.keys().hasAll(['challengeId', 'kind', 'submittedAt'])
                       && (request.resource.data.candidateAuthUid == request.auth.uid || isStaff());

@@ -1,14 +1,15 @@
 import { Settings, FileText } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db, callEvaluateSession } from '../firebase';
 import { doc, onSnapshot, getDoc, collection, query, orderBy, getDocs, updateDoc, where, serverTimestamp } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
-import Editor from '@monaco-editor/react';
 import { useTranslation } from 'react-i18next';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import AdminNavbar from './AdminNavbar';
+import { useAuth } from '../context/AuthContext';
+
+const Editor = React.lazy(() => import('@monaco-editor/react'));
 
 // ─── Print styles injected once ──────────────────────────────────────────────
 const PRINT_STYLE_ID = 'session-report-print-styles';
@@ -34,7 +35,7 @@ export default function SessionReport() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
-  const [user, setUser] = useState(null);
+  const { user, role, authReady } = useAuth();
   const [session, setSession] = useState(null);
   const [transcript, setTranscript] = useState([]);
   const [answers, setAnswers] = useState([]);
@@ -49,19 +50,20 @@ export default function SessionReport() {
   const { dialogProps, openConfirm } = useConfirmDialog();
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, u => {
-      if (!u) { navigate('/login'); return; }
-      setUser(u);
-    });
-    return () => unsub();
-  }, [navigate]);
+    if (authReady && !user) {
+      navigate('/login');
+    }
+  }, [authReady, user, navigate]);
 
   useEffect(() => {
-    if (!user || !id) return;
+    if (!authReady || !user || !id) return;
     const unsub = onSnapshot(doc(db, 'sessions', id), snap => {
       if (!snap.exists()) { setLoading(false); return; }
       const data = { id: snap.id, ...snap.data() };
       setSession(data);
+      if (data && data.candidateName) {
+        document.title = `Report: ${data.candidateName} | Presto AI`;
+      }
       setLoading(false);
 
       // Load related data (challenges from the position, transcript + answers from session).
@@ -1115,13 +1117,15 @@ export default function SessionReport() {
                             )}
                             {ans.kind === 'code' && (
                               <div style={{ height: 240, border: '1px solid var(--border-color)', borderRadius: 4, overflow: 'hidden' }}>
-                                <Editor
-                                  height="240px"
-                                  language={ans.language || ch.language || 'javascript'}
-                                  value={ans.text || ''}
-                                  theme="vs-dark"
-                                  options={{ readOnly: true, minimap: { enabled: false }, fontSize: 12, automaticLayout: true, scrollBeyondLastLine: false, wordWrap: 'on' }}
-                                />
+                                <Suspense fallback={<div style={{ padding: 10, color: 'var(--text-muted)', fontSize: 13 }}>Loading editor…</div>}>
+                                  <Editor
+                                    height="240px"
+                                    language={ans.language || ch.language || 'javascript'}
+                                    value={ans.text || ''}
+                                    theme="vs-dark"
+                                    options={{ readOnly: true, minimap: { enabled: false }, fontSize: 12, automaticLayout: true, scrollBeyondLastLine: false, wordWrap: 'on' }}
+                                  />
+                                </Suspense>
                               </div>
                             )}
                           </div>

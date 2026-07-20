@@ -5,11 +5,13 @@ import { auth, db } from '../firebase';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 import AdminNavbar from './AdminNavbar';
+import { useAuth } from '../context/AuthContext';
 import './CandidateProfile.css';
 
 export default function CandidateProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, role, authReady } = useAuth();
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [scores, setScores] = useState({});
@@ -63,6 +65,13 @@ export default function CandidateProfile() {
   };
 
   useEffect(() => {
+    if (authReady && !user) {
+      navigate('/login');
+    }
+  }, [authReady, user, navigate]);
+
+  useEffect(() => {
+    if (!authReady || !user) return;
     async function loadData() {
       try {
         // Load candidate
@@ -75,19 +84,16 @@ export default function CandidateProfile() {
           if (data.manualEvaluation?.naQuestions) setNaQuestions(data.manualEvaluation.naQuestions);
         }
 
-        // Load the current user to determine their role & creator chain
-        const currentUser = auth.currentUser;
+        // Load user's role & creator chain
         let creatorChain = [];
-        if (currentUser) {
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData.createdBy) {
-              creatorChain.push(userData.createdBy);
-              const parentDoc = await getDoc(doc(db, 'users', userData.createdBy));
-              if (parentDoc.exists() && parentDoc.data().createdBy) {
-                creatorChain.push(parentDoc.data().createdBy);
-              }
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          if (userData.createdBy) {
+            creatorChain.push(userData.createdBy);
+            const parentDoc = await getDoc(doc(db, 'users', userData.createdBy));
+            if (parentDoc.exists() && parentDoc.data().createdBy) {
+              creatorChain.push(parentDoc.data().createdBy);
             }
           }
         }
@@ -95,14 +101,11 @@ export default function CandidateProfile() {
         // Load questions scoped to this user
         const qSnap = await getDocs(collection(db, 'questions'));
         const allQ = qSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        let visible = allQ;
-        if (currentUser) {
-          visible = allQ.filter(q =>
-            q.scope === 'global' ||
-            q.createdBy === currentUser.uid ||
-            creatorChain.includes(q.createdBy)
-          );
-        }
+        const visible = allQ.filter(q =>
+          q.scope === 'global' ||
+          q.createdBy === user.uid ||
+          creatorChain.includes(q.createdBy)
+        );
         // Sort by category then title
         visible.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.title || '').localeCompare(b.title || ''));
         
@@ -132,7 +135,7 @@ export default function CandidateProfile() {
       }
     }
     loadData();
-  }, [id]);
+  }, [authReady, user, id]);
 
   const handleScoreChange = (qId, val) => {
     setScores(prev => ({ ...prev, [qId]: Number(val) }));

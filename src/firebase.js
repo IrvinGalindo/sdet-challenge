@@ -53,6 +53,8 @@ export const callLiveSuggestion       = (payload)  => callWorker('/liveSuggestio
 export const callCustomPrompt         = (payload)  => callWorker('/customPrompt', payload);
 export const callEvaluateSession      = (payload)  => callWorker('/evaluateSession', payload);
 export const callBiasAudit            = (report)   => callWorker('/biasAudit', { report });
+export const callCreateStaff          = (payload)  => callWorker('/createStaff', payload);
+export const callAnalyzeCV            = (payload)  => callWorker('/analyzeCV', payload);
 
 
 

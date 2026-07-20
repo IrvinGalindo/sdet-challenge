@@ -1,6 +1,7 @@
 import { Globe } from 'lucide-react';
-import React, { useState, useRef } from 'react';
-import Editor from '@monaco-editor/react';
+import React, { useState, useRef, Suspense } from 'react';
+
+const Editor = React.lazy(() => import('@monaco-editor/react'));
 
 // Code challenge — Monaco editor with language picker.
 // The challenge specifies a default language; the candidate can switch to any
@@ -239,29 +240,31 @@ export default function CodeChallenge({ challenge, onSubmit, locked, previousAns
           </div>
 
           <div style={editorWrap}>
-            <Editor
-              height="440px"
-              language={language}
-              value={code}
-              onChange={handleCodeChange}
-              onMount={handleEditorMount}
-              theme="vs-dark"
-              loading={<div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Loading editor…</div>}
-              options={{
-                readOnly: locked,
-                minimap: { enabled: false },
-                fontSize: 13,
-                fontFamily: '"JetBrains Mono", "Fira Code", Menlo, monospace',
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                tabSize: 2,
-                wordWrap: 'on',
-                renderLineHighlight: 'line',
-                scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-                padding: { top: 10, bottom: 10 },
-              }}
-            />
+            <Suspense fallback={<div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Loading editor…</div>}>
+              <Editor
+                height="440px"
+                language={language}
+                value={code}
+                onChange={handleCodeChange}
+                onMount={handleEditorMount}
+                theme="vs-dark"
+                loading={<div style={{ padding: 20, color: 'var(--text-muted)', fontSize: 13 }}>Loading editor…</div>}
+                options={{
+                  readOnly: locked,
+                  minimap: { enabled: false },
+                  fontSize: 13,
+                  fontFamily: '"JetBrains Mono", "Fira Code", Menlo, monospace',
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  tabSize: 2,
+                  wordWrap: 'on',
+                  renderLineHighlight: 'line',
+                  scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+                  padding: { top: 10, bottom: 10 },
+                }}
+              />
+            </Suspense>
           </div>
         </>
       )}

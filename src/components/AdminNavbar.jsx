@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
 import './AdminDashboard.css';
 
 export default function AdminNavbar() {
@@ -10,47 +10,27 @@ export default function AdminNavbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-
-  const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, role, authReady } = useAuth();
 
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged(async (u) => {
-      if (!u) {
-        navigate('/login');
-        return;
-      }
-      try {
-        const userDoc = await getDoc(doc(db, 'users', u.uid));
-        if (userDoc.exists()) {
-          setRole(userDoc.data().role || 'interviewer');
-        } else {
-          setRole('interviewer');
-        }
-      } catch (err) {
-        console.error("Error fetching user role for navbar:", err);
-        setRole('interviewer');
-      } finally {
-        setLoading(false);
-      }
-    });
-    return () => unsub();
-  }, [navigate]);
+    if (authReady && !user) {
+      navigate('/login');
+    }
+  }, [authReady, user, navigate]);
 
   const path = location.pathname;
   let activeTab = '';
   if (path.startsWith('/admin/positions') || path.startsWith('/admin/sessions') || path.startsWith('/admin/candidate')) {
     activeTab = 'positions';
   } else if (path === '/admin' || path === '/admin/') {
-    activeTab = searchParams.get('tab') || localStorage.getItem('adminActiveTab') || 'results';
+    activeTab = searchParams.get('tab') || 'results';
   }
 
   const handleTabChange = (tab) => {
-    localStorage.setItem('adminActiveTab', tab);
     navigate(`/admin?tab=${tab}`);
   };
 
-  if (loading) {
+  if (!authReady) {
     return (
       <div className="admin-navbar" style={{ marginBottom: '2rem' }}>
         <div className="admin-navbar-left">

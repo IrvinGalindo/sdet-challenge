@@ -19,9 +19,17 @@ import MicPermissionDialog from './MicPermissionDialog';
 import ConfirmDialog, { useConfirmDialog } from './ConfirmDialog';
 import CandidateQAPhase from './CandidateQAPhase';
 import { RegenerateLinkModal } from './ScheduleInterviewModal';
+import { VideoCall } from './VideoCall';
+import { InterviewerScript } from './InterviewerScript';
 
 const SUGGESTION_INTERVAL_MS = 90_000; // 90 seconds
 const SUGGESTION_MIN_CHUNKS = 4;      // need at least this many chunks since last call
+
+const speechLog = (...args) => {
+  if (import.meta.env.DEV) {
+    console.log(...args);
+  }
+};
 
 // Live interview room. Single component that reads role + token from the URL,
 // validates against sessions/{id}, and renders the appropriate panel.
@@ -58,7 +66,18 @@ export default function Room() {
   const [questions, setQuestions] = useState([]);  // position interview questions
   const [regeneratedUrl, setRegeneratedUrl] = useState(null);
   const [meetingMuted, setMeetingMuted] = useState(false);
+  const [cvPanelOpen, setCvPanelOpen] = useState(true); // CV analysis panel visibility
   const { dialogProps, openConfirm } = useConfirmDialog();
+
+  const transcriptRef = useRef(transcript);
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  const challengesRef = useRef(challenges);
+  useEffect(() => {
+    challengesRef.current = challenges;
+  }, [challenges]);
 
 
   // ── Auth bootstrap ─────────────────────────────────────────────────────────
@@ -154,6 +173,9 @@ export default function Room() {
       }
 
       setSession(data);
+      if (data && data.candidateName) {
+        document.title = `Interview Room: ${data.candidateName} | Presto AI`;
+      }
       setLoading(false);
     }, (err) => {
       console.error(err);
@@ -263,7 +285,7 @@ export default function Room() {
 
     // Check for duplicates in the existing transcript state from the other speaker within the last 4s
     const now = Date.now();
-    const isDuplicate = transcript.some(chunk => {
+    const isDuplicate = transcriptRef.current.some(chunk => {
       const otherNormalized = norm(chunk.text);
       if (!otherNormalized) return false;
 
@@ -310,24 +332,24 @@ export default function Room() {
     });
 
     if (isDuplicate) {
-      console.log(`[Speech Debug] Skipped duplicate chunk from other speaker: "${text}"`);
+      speechLog(`[Speech Debug] Skipped duplicate chunk from other speaker: "${text}"`);
       return;
     }
 
-    console.log(`[Speech Debug] Captured final chunk: "${text}" (Speaker: ${speakerTag})`);
+    speechLog(`[Speech Debug] Captured final chunk: "${text}" (Speaker: ${speakerTag})`);
     try {
-      console.log(`[Speech Debug] Attempting to write chunk to Firestore...`);
+      speechLog(`[Speech Debug] Attempting to write chunk to Firestore...`);
       const docRef = await addDoc(collection(db, 'sessions', sessionId, 'transcript_chunks'), {
         speaker: speakerTag,
         authorUid: user?.uid || null,
         text,
         createdAt: serverTimestamp(),
       });
-      console.log(`[Speech Debug] Chunk saved successfully. Doc ID: ${docRef.id}`);
+      speechLog(`[Speech Debug] Chunk saved successfully. Doc ID: ${docRef.id}`);
     } catch (e) {
       console.error('[Speech Debug] Firestore write failed:', e.code, e.message);
     }
-  }, [sessionId, speakerTag, user, transcript]);
+  }, [sessionId, speakerTag, user]);
 
   const transcribe = useTranscription({
     enabled: !!session && session.status !== 'completed' && micGateDismissed && !meetingMuted,
@@ -338,9 +360,9 @@ export default function Room() {
 
   // Auto-dismiss the gate if permission is already granted from a previous visit.
   useEffect(() => {
-    console.log(`[Speech Debug] Mic permission state is: ${transcribe.permissionState}`);
+    speechLog(`[Speech Debug] Mic permission state is: ${transcribe.permissionState}`);
     if (transcribe.permissionState === 'granted') {
-      console.log(`[Speech Debug] Permission granted. Enabling transcription.`);
+      speechLog(`[Speech Debug] Permission granted. Enabling transcription.`);
       setMicGateDismissed(true);
     }
   }, [transcribe.permissionState]);
@@ -357,17 +379,19 @@ export default function Room() {
 
     const tick = async () => {
       // Skip if there aren't enough new chunks since last call.
-      const newSinceLast = transcript.length - lastChunkCountAtCallRef.current;
-      if (transcript.length === 0 || newSinceLast < SUGGESTION_MIN_CHUNKS) return;
+      const currentTranscript = transcriptRef.current;
+      const currentChallenges = challengesRef.current;
+      const newSinceLast = currentTranscript.length - lastChunkCountAtCallRef.current;
+      if (currentTranscript.length === 0 || newSinceLast < SUGGESTION_MIN_CHUNKS) return;
 
-      lastChunkCountAtCallRef.current = transcript.length;
+      lastChunkCountAtCallRef.current = currentTranscript.length;
       suggestionTickRef.current += 1;
       const myTick = suggestionTickRef.current;
       setSuggestionBusy(true);
 
       try {
-        const askedTopics = challenges.map(c => c.title).filter(Boolean);
-        const recent = transcript.slice(-60).map(c => ({ speaker: c.speaker, text: c.text }));
+        const askedTopics = currentChallenges.map(c => c.title).filter(Boolean);
+        const recent = currentTranscript.slice(-60).map(c => ({ speaker: c.speaker, text: c.text }));
         const result = await callLiveSuggestion({
           position: {
             title: position.title, seniority: position.seniority,
@@ -375,6 +399,9 @@ export default function Room() {
           },
           transcript: recent,
           askedTopics,
+          cvClaims: session?.cvAnalysis
+            ? { questionsToVerify: session.cvAnalysis.questionsToVerify, unverifiedClaims: session.cvAnalysis.claimedTechStack }
+            : undefined,
         });
 
         if (cancelled || myTick !== suggestionTickRef.current) return;
@@ -397,15 +424,17 @@ export default function Room() {
 
     const id = setInterval(tick, SUGGESTION_INTERVAL_MS);
     return () => { cancelled = true; clearInterval(id); };
-  }, [role, position, sessionId, session?.status, transcript, challenges]);
+  }, [role, position, sessionId, session?.status]);
 
   // ── On-demand AI suggestion (interviewer clicks "Ask AI now") ─────────────
   const handleTriggerSuggestion = useCallback(async () => {
-    if (suggestionBusy || !position || !sessionId || transcript.length === 0) return;
+    const currentTranscript = transcriptRef.current;
+    const currentChallenges = challengesRef.current;
+    if (suggestionBusy || !position || !sessionId || currentTranscript.length === 0) return;
     setSuggestionBusy(true);
     try {
-      const askedTopics = challenges.map(c => c.title).filter(Boolean);
-      const recent = transcript.slice(-60).map(c => ({ speaker: c.speaker, text: c.text }));
+      const askedTopics = currentChallenges.map(c => c.title).filter(Boolean);
+      const recent = currentTranscript.slice(-60).map(c => ({ speaker: c.speaker, text: c.text }));
       const result = await callLiveSuggestion({
         position: {
           title: position.title, seniority: position.seniority,
@@ -413,6 +442,9 @@ export default function Room() {
         },
         transcript: recent,
         askedTopics,
+        cvClaims: session?.cvAnalysis
+          ? { questionsToVerify: session.cvAnalysis.questionsToVerify, unverifiedClaims: session.cvAnalysis.claimedTechStack }
+          : undefined,
       });
       await addDoc(collection(db, 'sessions', sessionId, 'suggestions'), {
         suggestion: result.suggestion || '',
@@ -429,17 +461,18 @@ export default function Room() {
     } finally {
       setSuggestionBusy(false);
     }
-  }, [suggestionBusy, position, sessionId, transcript, challenges]);
+  }, [suggestionBusy, position, sessionId]);
 
   // ── Custom AI prompt (interviewer asks a free-text question) ──────────────
   const handleCustomPrompt = useCallback(async (e) => {
     e.preventDefault();
     const q = customQuestion.trim();
+    const currentTranscript = transcriptRef.current;
     if (!q || customBusy || !sessionId) return;
     setCustomBusy(true);
     setCustomQuestion('');
     try {
-      const recent = transcript.slice(-40).map(c => ({ speaker: c.speaker, text: c.text }));
+      const recent = currentTranscript.slice(-40).map(c => ({ speaker: c.speaker, text: c.text }));
       const result = await callCustomPrompt({
         question: q,
         transcript: recent,
@@ -463,7 +496,7 @@ export default function Room() {
     } finally {
       setCustomBusy(false);
     }
-  }, [customQuestion, customBusy, sessionId, transcript, position]);
+  }, [customQuestion, customBusy, sessionId, position]);
 
   // ── Phase control (interviewer only) ─────────────────────────────────────
   // phase: 'intro' | 'questions' | 'challenges' — stored on session doc so candidate reacts in real-time.
@@ -585,6 +618,9 @@ export default function Room() {
         transcript: transcriptList,
         answers: answersList,
         challenges: challengeList,
+        // CV data for claim comparison
+        cvAnalysis: session.cvAnalysis || null,
+        cvText:     session.cvText     || null,
       });
 
       // 3. Save report on the session doc.
@@ -745,6 +781,42 @@ export default function Room() {
 
   return (
     <div style={pageWrap}>
+      {/* ── Fullscreen AI Evaluation Loading Overlay ── */}
+      {ending && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+          background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999,
+        }}>
+          <div style={{
+            background: 'var(--bg-card)', padding: '3rem', borderRadius: 12,
+            border: '1px solid var(--accent-primary)', textAlign: 'center',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxWidth: 420, width: '90%',
+          }}>
+            <h2 style={{ margin: '0 0 1rem', color: '#fff' }}>
+              {endingStage === 'closing'   ? t('room.closingSession')
+               : endingStage === 'saving'   ? t('room.savingReport')
+               : endingStage === 'auditing' ? t('room.runningBiasAudit')
+               : t('room.generatingReport')}
+            </h2>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: '2rem', lineHeight: 1.6 }}>
+              {endingStage === 'closing'   ? t('room.endingOverlayDesc.closing')
+               : endingStage === 'saving'   ? t('room.endingOverlayDesc.saving')
+               : endingStage === 'auditing' ? t('room.endingOverlayDesc.auditing')
+               : t('room.endingOverlayDesc.evaluating')}
+            </p>
+            <div style={{
+              width: 48, height: 48,
+              border: '4px solid var(--border-color)', borderTopColor: 'var(--accent-primary)',
+              borderRadius: '50%', margin: '0 auto',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
+        </div>
+      )}
+
       {/* Top bar */}
       <header style={topBar}>
         <div>
@@ -761,6 +833,7 @@ export default function Room() {
             <button
               onClick={handleRegenerateLink}
               title={t('positions.regenerateLinkBtn')}
+              aria-label={t('positions.regenerateLinkBtn')}
               style={{
                 padding: '6px 12px',
                 background: 'rgba(99,102,241,0.12)',
@@ -781,6 +854,7 @@ export default function Room() {
             <button
               onClick={handleEnd}
               disabled={ending}
+              aria-label={t('room.endInterview')}
               style={{
                 padding: '8px 16px',
                 background: ending ? 'var(--bg-card)' : 'var(--accent-danger)',
@@ -911,6 +985,7 @@ export default function Room() {
                     questions={questions}
                     currentQIdx={currentQIdx}
                     transcript={transcript}
+                    listening={transcribe.listening}
                   />
                 ) : (
                   <>
@@ -1067,6 +1142,126 @@ export default function Room() {
                 </div>
               )}
 
+              {/* ── CV Analysis Panel (Interviewer only) ─────────────────── */}
+              {session?.cvAnalysis && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(99,102,241,0.04))',
+                  border: '1px solid rgba(6,182,212,0.25)',
+                  borderRadius: 14, padding: 0, marginTop: 28, overflow: 'hidden',
+                }}>
+                  {/* Header / toggle */}
+                  <button
+                    onClick={() => setCvPanelOpen(o => !o)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 18px', background: 'transparent', border: 'none',
+                      cursor: 'pointer', color: 'inherit',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 15 }}>📄</span>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-info)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                        {t('room.cvAnalysis.title')}
+                      </div>
+                      {/* Fit score badge */}
+                      {session.cvAnalysis.fitScore != null && (
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10,
+                          background: session.cvAnalysis.fitScore >= 4 ? 'rgba(16,185,129,0.15)' : session.cvAnalysis.fitScore >= 3 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                          color: session.cvAnalysis.fitScore >= 4 ? 'var(--accent-success)' : session.cvAnalysis.fitScore >= 3 ? 'var(--accent-warning)' : 'var(--accent-danger)',
+                        }}>
+                          {t('room.cvAnalysis.fitScore')}: {session.cvAnalysis.fitScore}/5
+                        </span>
+                      )}
+                      {session.cvAnalysis.redFlags?.length > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'rgba(245,158,11,0.15)', color: 'var(--accent-warning)' }}>
+                          ⚠ {session.cvAnalysis.redFlags.length} {t('room.cvAnalysis.redFlags')}
+                        </span>
+                      )}
+                    </div>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', transform: cvPanelOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                  </button>
+
+                  {cvPanelOpen && (
+                    <div style={{ padding: '0 18px 16px' }}>
+                      {/* Summary */}
+                      {session.cvAnalysis.summary && (
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 14px' }}>
+                          {session.cvAnalysis.summary}
+                        </p>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                        {/* Key strengths */}
+                        {session.cvAnalysis.keyStrengths?.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-success)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+                              {t('room.cvAnalysis.strengths')}
+                            </div>
+                            {session.cvAnalysis.keyStrengths.map((s, i) => (
+                              <div key={i} style={{ fontSize: 12, color: 'var(--text-highlight)', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                                <span style={{ color: 'var(--accent-success)', flexShrink: 0, marginTop: 1 }}>✓</span>
+                                {s}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Red flags */}
+                        {session.cvAnalysis.redFlags?.length > 0 && (
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-warning)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 6 }}>
+                              {t('room.cvAnalysis.redFlags')}
+                            </div>
+                            {session.cvAnalysis.redFlags.map((f, i) => (
+                              <div key={i} style={{ fontSize: 12, color: 'var(--text-highlight)', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                                <span style={{ color: 'var(--accent-warning)', flexShrink: 0, marginTop: 1 }}>⚠</span>
+                                {f}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Claimed tech stack */}
+                      {session.cvAnalysis.claimedTechStack?.length > 0 && (
+                        <div style={{ marginTop: 14 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>
+                            {t('room.cvAnalysis.claimedTech')}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {session.cvAnalysis.claimedTechStack.map((tech, i) => (
+                              <span key={i} style={{
+                                fontSize: 11, padding: '3px 8px', borderRadius: 6,
+                                background: 'rgba(6,182,212,0.1)', color: 'var(--accent-info)',
+                                border: '1px solid rgba(6,182,212,0.2)',
+                              }}>{tech}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Questions to verify */}
+                      {session.cvAnalysis.questionsToVerify?.length > 0 && (
+                        <div style={{ marginTop: 14 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>
+                            {t('room.cvAnalysis.questionsToVerify')}
+                          </div>
+                          {session.cvAnalysis.questionsToVerify.map((q, i) => (
+                            <div key={i} style={{
+                              fontSize: 12, color: 'var(--text-highlight)', padding: '6px 10px', marginBottom: 6,
+                              background: 'rgba(99,102,241,0.06)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 6px 6px 0',
+                            }}>
+                              {q}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── AI Suggestions & Co-pilot (Interviewer only, horizontal grid layout) ── */}
               <div style={{
                 background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(6,182,212,0.02))',
@@ -1080,7 +1275,7 @@ export default function Room() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', marginRight: 4 }}><Bot size={16} /></span>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-highlight)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                          Claude Suggestions
+                          {t('room.prestoSuggestions')}
                         </div>
                       </div>
                       <button
@@ -1098,12 +1293,12 @@ export default function Room() {
                         {suggestionBusy ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <Clock size={14} style={{ animation: 'vc-spin 1.5s linear infinite' }} />
-                            Claude is thinking…
+                            {t('room.prestoThinking')}
                           </span>
                         ) : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                             <Zap size={14} />
-                            Ask Claude now
+                            {t('room.askPresto')}
                           </span>
                         )}
                       </button>
@@ -1114,12 +1309,12 @@ export default function Room() {
                     </div>
                   </div>
 
-                  {/* Right: Ask Claude anything form */}
+                  {/* Right: Ask Presto anything form */}
                   <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                          Ask Claude anything
+                          {t('room.askPrestoAnything')}
                         </div>
                         {/* Mic status inside form header */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1161,7 +1356,7 @@ export default function Room() {
                             transition: 'all 0.2s',
                           }}
                         >
-                          {customBusy ? 'Claude is thinking…' : 'Send to Claude →'}
+                          {customBusy ? t('room.prestoThinking') : t('room.sendToPresto')}
                         </button>
                       </form>
                     </div>
@@ -1356,202 +1551,6 @@ function SectionHeading({ children }) {
   );
 }
 
-// ─── InterviewerScript ────────────────────────────────────────────────────────
-// Shows the question bank as a script for the interviewer. Tracks which question
-// is "current" and shows the candidate's live/saved verbal answer per question.
-
-function InterviewerScript({ questions, answers, transcript, currentQIdx, phase, onAdvance, onFinishQA }) {
-  const { t } = useTranslation();
-  const total = questions.length;
-  const [saving, setSaving] = useState(false);
-  const questionStartIdxRef = useRef(0);
-  const [candidateText, setCandidateText] = useState('');
-
-  const active = questions[currentQIdx];
-  const verbalAnswer = active ? answers[active.id] : null;
-
-  // Re-compute accumulated candidate speech whenever transcript grows or question changes.
-  useEffect(() => {
-    const chunks = transcript.slice(questionStartIdxRef.current);
-    const text = chunks
-      .filter(c => c.speaker === 'candidate')
-      .map(c => c.text)
-      .join(' ')
-      .trim();
-    setCandidateText(text);
-  }, [transcript, currentQIdx]);
-
-  // When advancing, we tell the parent what the new index should be, and the answer text.
-  // The parent will save the answer and update the index in Firestore.
-  const handleNext = async () => {
-    if (!active || saving) return;
-    setSaving(true);
-    try {
-      if (currentQIdx < total - 1) {
-        await onAdvance(currentQIdx + 1, active.id, candidateText || '(' + t('report.challenge.notSubmitted') + ')');
-        questionStartIdxRef.current = transcript.length;
-      } else {
-        await onFinishQA(active.id, candidateText || '(' + t('report.challenge.notSubmitted') + ')');
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (!total) return null;
-
-  // If we are in challenges phase, Q&A is done.
-  if (phase === 'challenges') {
-    return (
-      <div style={{ marginBottom: 28, padding: 16, background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', borderRadius: 8 }}>
-        <h3 style={{ margin: '0 0 8px', color: 'var(--accent-success)' }}>{t('room.script.qaCompleted')}</h3>
-        <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t('room.script.qaCompletedDesc')}</span>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ marginBottom: 28 }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{t('room.script.interviewScript')}</h2>
-        <span style={{
-          fontSize: 10, fontWeight: 700, padding: '3px 10px', borderRadius: 4,
-          letterSpacing: 0.6, background: 'rgba(245,158,11,0.15)', color: '#fbbf24',
-        }}>{t('room.script.verbalQuestions', { count: total })}</span>
-      </div>
-
-      {/* Question navigator */}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-        {questions.map((q, i) => {
-          const answered = !!answers[q.id];
-          const current = i === currentQIdx;
-          return (
-            <div
-              key={q.id}
-              title={q.title}
-              style={{
-                width: 30, height: 30, borderRadius: '50%', fontSize: 11, fontWeight: 700,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                border: current
-                  ? '2px solid var(--accent-primary)'
-                  : `1px solid ${answered ? 'var(--accent-success)' : 'var(--border-color)'}`,
-                background: answered
-                  ? 'rgba(16,185,129,0.15)'
-                  : current ? 'rgba(99,102,241,0.15)' : 'var(--bg-card)',
-                color: answered
-                  ? 'var(--accent-success)'
-                  : current ? 'var(--accent-primary)' : 'var(--text-muted)',
-              }}
-            >
-              {answered ? '✓' : i + 1}
-            </div>
-          );
-        })}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-          <button
-            onClick={handleNext}
-            disabled={saving}
-            style={{ ...navBtn, background: currentQIdx === total - 1 ? 'var(--accent-success)' : 'var(--accent-primary)', color: '#fff', border: 'none' }}
-          >
-            {saving ? t('room.script.saving') : currentQIdx === total - 1 ? t('room.script.finishQaBtn') : t('room.script.nextQuestionBtn')}
-          </button>
-        </div>
-      </div>
-
-      {/* Active question card */}
-      {active && (
-        <div style={{
-          background: 'var(--bg-card)',
-          border: '1px solid var(--accent-primary)',
-          borderRadius: 10, padding: '1.25rem 1.5rem',
-        }}>
-          {/* Title row */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 10 }}>
-            <div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.4 }}>
-                {t('room.script.questionProgress', { current: currentQIdx + 1, total })}
-                {active.category && ` · ${active.category.toUpperCase()}`}
-              </span>
-              <h3 style={{ margin: '4px 0 0', fontSize: 16 }}>{active.title}</h3>
-            </div>
-            {answers[active.id] && (
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 4,
-                background: 'rgba(16,185,129,0.15)', color: 'var(--accent-success)', flexShrink: 0,
-              }}>✓ {t('room.script.answered')}</span>
-            )}
-          </div>
-
-          {/* Prompt — this is what the interviewer should ask */}
-          <div style={{
-            background: 'rgba(99,102,241,0.07)',
-            border: '1px solid rgba(99,102,241,0.2)',
-            borderRadius: 6, padding: '12px 14px', marginBottom: 14,
-          }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: 0.5, marginBottom: 6 }}>
-              {t('room.script.askCandidateLabel')}
-            </div>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: 'var(--text-highlight)' }}>
-              {active.prompt}
-            </p>
-          </div>
-
-          {/* Candidate's saved verbal answer */}
-          {verbalAnswer ? (
-            <div style={{
-              background: 'rgba(0,0,0,0.2)',
-              borderLeft: '3px solid var(--accent-success)',
-              borderRadius: '0 6px 6px 0', padding: '10px 14px',
-            }}>
-              <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-success)', letterSpacing: 0.5, marginBottom: 6 }}>
-                {t('room.script.candidateAnswerLabel')}
-              </div>
-              <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>
-                {verbalAnswer.text}
-              </p>
-            </div>
-          ) : (
-            /* Live speech preview while candidate is still answering */
-            candidateText && (
-              <div style={{
-                background: 'rgba(0,0,0,0.15)',
-                borderLeft: '3px solid var(--accent-warning)',
-                borderRadius: '0 6px 6px 0', padding: '10px 14px',
-              }}>
-                <div style={{ fontSize: 10, fontWeight: 700, color: '#fbbf24', letterSpacing: 0.5, marginBottom: 6 }}>
-                  {t('room.script.liveSpeakingLabel')}
-                </div>
-                <p style={{ margin: 0, fontSize: 13, lineHeight: 1.65, color: 'var(--text-highlight)', fontStyle: 'italic' }}>
-                  {candidateText}
-                </p>
-              </div>
-            )
-          )}
-
-          {/* Rubric hint */}
-          {active.rubric && (
-            <details style={{ marginTop: 12 }}>
-              <summary style={{ fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', userSelect: 'none' }}>
-                {t('room.script.rubricLabel')}
-              </summary>
-              <p style={{ margin: '8px 0 0', fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                {active.rubric}
-              </p>
-            </details>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const navBtn = {
-  padding: '4px 12px', fontSize: 12, fontWeight: 600,
-  background: 'var(--bg-card)', border: '1px solid var(--border-color)',
-  color: 'var(--text-muted)', borderRadius: 6, cursor: 'pointer',
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 
@@ -1628,233 +1627,6 @@ const candidateVideoCol = {
 };
 
 
-// ─── VideoCall (WebRTC + Firestore signaling) ─────────────────────────────────
-//
-// Pure WebRTC video call — no third-party service required.
-// Signaling (SDP offer/answer + ICE candidates) is exchanged via Firestore
-// under:  sessions/{sessionId}/videoRoom/room
-//          └── offerCandidates/{id}   (ICE from interviewer)
-//          └── answerCandidates/{id}  (ICE from candidate)
-//
-// The interviewer is the WebRTC "caller"; the candidate is the "callee".
-// Google's free STUN servers are used for NAT traversal.
-//
-// Props
-//   sessionId   – Firestore session document ID (used as room key)
-//   role        – 'interviewer' | 'candidate'
-//   displayName – label shown in the local video tile
-//   onLeft      – callback fired when the user clicks Hang Up
-
-function VideoCall({ sessionId, role, displayName, onLeft, onMuteStatusChanged }) {
-  const containerRef = useRef(null);
-  const jitsiApiRef = useRef(null);
-  const [jitsiReady, setJitsiReady] = useState(false);
-  const [jitsiError, setJitsiError] = useState('');
-  const [activeDomain, setActiveDomain] = useState(null);
-  const [retryTrigger, setRetryTrigger] = useState(0);
-  const isInterviewer = role === 'interviewer';
-
-  // Keep stable reference to callbacks to prevent iframe from restarting on parent re-renders
-  const onLeftRef = useRef(onLeft);
-  useEffect(() => {
-    onLeftRef.current = onLeft;
-  }, [onLeft]);
-
-  const onMuteStatusChangedRef = useRef(onMuteStatusChanged);
-  useEffect(() => {
-    onMuteStatusChangedRef.current = onMuteStatusChanged;
-  }, [onMuteStatusChanged]);
-
-
-  // 1. Load Jitsi script and check until window.JitsiMeetExternalAPI is a constructor
-  useEffect(() => {
-    let pollInterval = null;
-    let isCancelled = false;
-
-    const checkReady = (domain) => {
-      if (typeof window.JitsiMeetExternalAPI === 'function') {
-        clearInterval(pollInterval);
-        if (!isCancelled) {
-          setActiveDomain(domain);
-          setJitsiReady(true);
-        }
-        return true;
-      }
-      return false;
-    };
-
-    if (checkReady('meet.element.io')) {
-      return;
-    }
-
-    const mirrors = [
-      { domain: 'meet.element.io', src: 'https://meet.element.io/external_api.js' },
-      { domain: 'meet.jit.si', src: 'https://meet.jit.si/external_api.js' }
-    ];
-
-    let timeoutId = null;
-
-    const tryLoadMirror = (index) => {
-      if (index >= mirrors.length) {
-        if (!isCancelled) {
-          setJitsiError('Video conference mirrors took too long to load or are blocked. Please check your network or adblocker settings.');
-        }
-        return;
-      }
-
-      const { domain, src } = mirrors[index];
-      console.log(`[VideoCall] Attempting to load Jitsi API script from: ${src}`);
-
-      // Clean up previous script tag with data-jitsi if any
-      const existing = document.querySelector('script[data-jitsi]');
-      if (existing) {
-        existing.remove();
-      }
-
-      const script = document.createElement('script');
-      script.src = src;
-      script.setAttribute('data-jitsi', '1');
-      script.async = true;
-      document.body.appendChild(script);
-
-      // Start polling for JitsiMeetExternalAPI to become available
-      clearInterval(pollInterval);
-      pollInterval = setInterval(() => {
-        if (checkReady(domain)) {
-          clearTimeout(timeoutId);
-        }
-      }, 200);
-
-      // Timeout for this specific mirror
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        clearInterval(pollInterval);
-        console.warn(`[VideoCall] Timeout loading mirror: ${src}. Trying next mirror...`);
-        if (!isCancelled) {
-          tryLoadMirror(index + 1);
-        }
-      }, 10000); // 10 seconds per mirror
-    };
-
-    tryLoadMirror(0);
-
-    return () => {
-      isCancelled = true;
-      clearInterval(pollInterval);
-      clearTimeout(timeoutId);
-    };
-  }, [retryTrigger]);
-
-  // 2. Initialize Jitsi once the API constructor is available
-  useEffect(() => {
-    if (!jitsiReady || !activeDomain || !containerRef.current || !sessionId) return;
-    if (typeof window.JitsiMeetExternalAPI !== 'function') return;
-
-    containerRef.current.innerHTML = '';
-
-    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
-    if (isInterviewer) {
-      setDoc(roomDocRef, { interviewerLeft: false }).catch(() => {});
-    }
-
-    let api;
-    try {
-      api = new window.JitsiMeetExternalAPI(activeDomain, {
-        roomName: `sdet-challenge-${sessionId}`,
-        width: '100%',
-        height: '100%',
-        parentNode: containerRef.current,
-        userInfo: { displayName },
-        configOverwrite: {
-          prejoinPageEnabled: false,
-          startWithAudioMuted: false,
-          startWithVideoMuted: true,
-          disableDeepLinking: true,
-          disableInviteFunctions: true,
-          hideConferenceSubject: true,
-          toolbarButtons: ['microphone', 'camera', 'hangup', 'tileview', 'settings'],
-        },
-        interfaceConfigOverwrite: {
-          SHOW_JITSI_WATERMARK: false,
-          SHOW_WATERMARK_FOR_GUESTS: false,
-          SHOW_BRAND_WATERMARK: false,
-          HIDE_INVITE_MORE_HEADER: true,
-        },
-      });
-    } catch (err) {
-      console.error('[VideoCall] Failed to initialize Jitsi:', err);
-      setJitsiError('Could not start video conference. ' + err.message);
-      return;
-    }
-
-    jitsiApiRef.current = api;
-
-    api.addEventListener('videoConferenceLeft', async () => {
-      if (isInterviewer) {
-        try { await updateDoc(roomDocRef, { interviewerLeft: true }); } catch (e) {}
-      }
-      if (onLeftRef.current) onLeftRef.current();
-    });
-
-    api.addEventListener('videoConferenceJoined', async () => {
-      try {
-        const muted = await api.isAudioMuted();
-        console.log(`[VideoCall] Joined conference, initial mute state:`, muted);
-        if (onMuteStatusChangedRef.current) {
-          onMuteStatusChangedRef.current(muted);
-        }
-      } catch (e) {
-        console.warn('[VideoCall] Failed to check initial mute status on join:', e);
-      }
-    });
-
-    api.addEventListener('audioMuteStatusChanged', (event) => {
-      console.log(`[VideoCall] audioMuteStatusChanged event:`, event.muted);
-      if (onMuteStatusChangedRef.current) {
-        onMuteStatusChangedRef.current(event.muted);
-      }
-    });
-
-    return () => {
-      try { api.dispose(); } catch (e) {}
-      jitsiApiRef.current = null;
-    };
-  }, [jitsiReady, activeDomain, sessionId, displayName, isInterviewer]);
-
-
-  // 3. Candidate: listen for interviewer leaving via Firestore
-  useEffect(() => {
-    if (!sessionId || isInterviewer) return;
-    const roomDocRef = doc(db, 'sessions', sessionId, 'videoRoom', 'room');
-    const unsub = onSnapshot(roomDocRef, (snap) => {
-      if (snap.data()?.interviewerLeft && onLeftRef.current) {
-        onLeftRef.current();
-      }
-    });
-    return () => unsub();
-  }, [sessionId, isInterviewer]);
-
-
-  return (
-    <div style={{ width: '100%', aspectRatio: '16/9', background: '#111214', position: 'relative', borderRadius: 12, overflow: 'hidden' }}>
-      {jitsiError ? (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#fff', gap: 12, padding: 24, zIndex: 10 }}>
-          <AlertTriangle size={32} style={{ color: '#fbbf24' }} />
-          <p style={{ textAlignment: 'center', fontSize: 13, color: 'rgba(255,255,255,0.7)', maxWidth: 300 }}>{jitsiError}</p>
-          <button onClick={() => { setJitsiError(''); setJitsiReady(false); setActiveDomain(null); setRetryTrigger(prev => prev + 1); }} style={{ padding: '8px 18px', borderRadius: 20, border: 'none', background: '#5b5fc7', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            Retry
-          </button>
-        </div>
-      ) : !jitsiReady ? (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: 13, gap: 8, zIndex: 5 }}>
-          <RefreshCw size={14} style={{ animation: 'spin 1.5s linear infinite' }} />
-          Loading video conference…
-        </div>
-      ) : null}
-      <div ref={containerRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} />
-    </div>
-  );
-}
 
 
 

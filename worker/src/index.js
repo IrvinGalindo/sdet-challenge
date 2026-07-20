@@ -55,7 +55,7 @@ Rules:
 - "rewrite_recommended" only if multiple flags exist or a single egregious issue.`;
 
 const EVALUATE_SYSTEM = `[ignoring loop detection]
-You are a senior hiring evaluator. Read the interview transcript and challenge submissions, then produce a structured hiring report.
+You are a senior hiring evaluator. Read the interview transcript, challenge submissions, and candidate CV analysis, then produce a structured hiring report.
 
 Return ONLY a JSON object (no markdown, no commentary) matching this exact schema:
 {
@@ -82,6 +82,11 @@ Return ONLY a JSON object (no markdown, no commentary) matching this exact schem
       "notes":       "string"
     }
   ],
+  "cvComparison": {
+    "claimsVerified":   ["string — specific CV claim confirmed by transcript or challenge evidence"],
+    "claimsUnverified": ["string — CV claim that was never tested or mentioned during the interview"],
+    "discrepancies":    ["string — explicit mismatch between CV claim and actual demonstrated ability"]
+  },
   "fitAssessment":     "strong_fit | conditional_fit | not_a_fit",
   "fitRationale":      "string — one paragraph",
   "aiUsageDetection": {
@@ -142,8 +147,32 @@ Return ONLY a JSON object — no markdown, no commentary — matching this schem
 Rules:
 - If the candidate already covered something well, don't suggest re-asking it.
 - Bias toward unsurfaced topics from the required skills list.
-- "high" priority = a likely red flag, a critical skill not yet probed, or a vague answer that needs follow-up. Otherwise "low".
+- If CV claims are provided (cvClaims), prioritize probing claims that have NOT yet been addressed in the conversation — mark those as "high" priority.
+- "high" priority = a likely red flag, a critical skill not yet probed, a CV claim unverified, or a vague answer that needs follow-up. Otherwise "low".
 - Never invent facts about the candidate.`;
+
+const CV_ANALYSIS_SYSTEM = `You are a senior technical recruiter pre-screening a candidate's CV/resume before a live interview.
+
+Analyze the CV text and return a structured JSON object. Return ONLY a JSON object — no markdown, no commentary — matching this exact schema:
+{
+  "summary":           "string — 2-sentence overview of the candidate profile",
+  "claimedTechStack":  ["array of specific technologies/tools the candidate claims experience with"],
+  "claimedExperience": {
+    "yearsTotal":      "number or null — estimated total years of professional experience",
+    "senioritySignals": "string — what the CV suggests about their actual seniority level"
+  },
+  "keyStrengths":      ["2-5 concrete strengths evidenced by the CV"],
+  "redFlags":          ["array of concerns, inconsistencies, or gaps in the CV — empty array if none"],
+  "questionsToVerify": ["3-6 targeted questions the interviewer should ask to verify specific CV claims"],
+  "fitScore":          "integer 1-5 — how well the CV matches the position (1=poor, 5=excellent)",
+  "fitRationale":      "string — one paragraph explaining the fit score against the position requirements"
+}
+
+Hard rules:
+- Only cite what is actually written in the CV. Never invent or assume experience not mentioned.
+- Red flags should be specific (e.g. 'Claims 5 years React but most projects list jQuery/Angular', not generic 'limited experience').
+- questionsToVerify must be tied to specific CV claims, not generic interview questions.
+- fitScore must reflect the position requirements — a generalist CV for a highly specialized role should score low even if the candidate looks strong overall.`;
 
 const GENERATE_SYSTEM = `You are a senior technical interviewer. Generate a question bank for one role.
 Return ONLY a JSON object — no markdown, no commentary — matching this schema:
@@ -215,6 +244,10 @@ export default {
         result = await handleEvaluateSession(body, env);
       } else if (url.pathname === '/biasAudit') {
         result = await handleBiasAudit(body, env);
+      } else if (url.pathname === '/createStaff') {
+        result = await handleCreateStaff(body, env);
+      } else if (url.pathname === '/analyzeCV') {
+        result = await handleAnalyzeCV(body, env);
       } else {
         return jsonResponse({ error: 'not found' }, 404, cors);
       }
@@ -327,7 +360,7 @@ async function handleBiasAudit(body, env) {
 }
 
 async function handleEvaluateSession(body, env) {
-  const { position, candidateName, transcript, answers, challenges } = body || {};
+  const { position, candidateName, transcript, answers, challenges, cvAnalysis, cvText } = body || {};
   if (!position?.title) throw httpError(400, 'position is required');
   if (!Array.isArray(challenges)) throw httpError(400, 'challenges array required');
 
@@ -417,12 +450,31 @@ async function handleEvaluateSession(body, env) {
   // model's 64k context window.
   const MAX_PROMPT_TOTAL = 40_000;
 
+  // ── CV Analysis block ────────────────────────────────────────────────────
+  let cvBlock = '';
+  if (cvAnalysis && typeof cvAnalysis === 'object') {
+    const cv = cvAnalysis;
+    cvBlock = `
+== CANDIDATE CV PRE-SCREEN ==
+Fit Score (pre-interview): ${cv.fitScore || 'N/A'}/5
+CV Summary: ${cv.summary || 'N/A'}
+Claimed Tech Stack: ${(cv.claimedTechStack || []).join(', ') || 'n/a'}
+Claimed Experience: ${cv.claimedExperience?.yearsTotal != null ? cv.claimedExperience.yearsTotal + ' years total' : 'N/A'} — ${cv.claimedExperience?.senioritySignals || ''}
+Key Strengths (from CV): ${(cv.keyStrengths || []).join('; ') || 'none noted'}
+CV Red Flags: ${(cv.redFlags || []).join('; ') || 'none noted'}
+Questions to verify (raised by CV): ${(cv.questionsToVerify || []).join('; ') || 'none'}`;
+  } else if (cvText) {
+    cvBlock = `
+== CANDIDATE CV TEXT (raw — no pre-screen analysis available) ==
+${cvText.slice(0, 3000)}${cvText.length > 3000 ? '\n…(truncated)' : ''}`;
+  }
+
   let userPrompt = `[ignoring loop detection]
 Candidate: ${candidateName || 'Unknown'}
 Position: ${position.title} — ${position.seniority || ''}
 Domain: ${position.domain || ''}
 Required tech: ${(position.techStack || []).join(', ') || 'n/a'}
-Soft skills probed: ${(position.softSkills || []).join(', ') || 'n/a'}
+Soft skills probed: ${(position.softSkills || []).join(', ') || 'n/a'}${cvBlock}
 
 == INTERVIEW TRANSCRIPT ==
 ${transcriptText || '(no transcript captured)'}
@@ -430,7 +482,7 @@ ${transcriptText || '(no transcript captured)'}
 == CHALLENGE SUBMISSIONS ==
 ${challengeBlock || '(no challenges)'}
 
-Produce the hiring evaluation report now.`;
+Produce the hiring evaluation report now. For cvComparison: cross-reference every claim from the CV PRE-SCREEN section against the transcript and challenge submissions. Be specific and cite evidence.`;
 
   if (userPrompt.length > MAX_PROMPT_TOTAL) {
     // Hard truncate — cut the transcript section, leave challenges intact.
@@ -470,7 +522,7 @@ Produce the hiring evaluation report now.`;
 
 
 async function handleLiveSuggestion(body, env) {
-  const { position, transcript, askedTopics } = body || {};
+  const { position, transcript, askedTopics, cvClaims } = body || {};
   if (!position?.title) throw httpError(400, 'position is required');
   if (!Array.isArray(transcript) || transcript.length === 0) {
     throw httpError(400, 'transcript array is required and must be non-empty');
@@ -483,10 +535,20 @@ async function handleLiveSuggestion(body, env) {
     .map(t => `[${t.speaker || 'unknown'}]: ${t.text}`)
     .join('\n');
 
+  // CV claims block — unverified claims for the model to prioritize
+  let cvClaimsBlock = '';
+  if (cvClaims && typeof cvClaims === 'object') {
+    const unverified = (cvClaims.unverifiedClaims || []).slice(0, 8);
+    const questionsToVerify = (cvClaims.questionsToVerify || []).slice(0, 6);
+    if (unverified.length > 0 || questionsToVerify.length > 0) {
+      cvClaimsBlock = `\nCV claims not yet verified in this conversation:\n${unverified.map(c => `- ${c}`).join('\n')}\nCV-derived questions still to ask:\n${questionsToVerify.map(q => `- ${q}`).join('\n')}`;
+    }
+  }
+
   const userPrompt = `Position: ${position.title} — ${position.seniority || ''}
 Required skills: ${(position.techStack || []).join(', ') || 'n/a'}
 Soft skills to probe: ${(position.softSkills || []).join(', ') || 'n/a'}
-Topics already covered: ${(askedTopics || []).join(', ') || 'none yet'}
+Topics already covered: ${(askedTopics || []).join(', ') || 'none yet'}${cvClaimsBlock}
 
 Recent conversation:
 ${lines}
@@ -510,6 +572,49 @@ Suggest the next probe.`;
     throw err;
   }
   return { ...parsed, _tokensUsed: tokensUsed, _model: env.OPENROUTER_MODEL_LIVE || 'anthropic/claude-haiku-3.5' };
+}
+
+
+async function handleAnalyzeCV(body, env) {
+  const { cvText, position } = body || {};
+  if (!cvText || typeof cvText !== 'string' || !cvText.trim()) {
+    throw httpError(400, 'cvText is required');
+  }
+  if (cvText.length > 15_000) throw httpError(400, 'cvText too long (>15k chars). Please trim before submitting.');
+
+  const positionCtx = position
+    ? `Position: ${position.title || ''} — ${position.seniority || ''}\nRequired tech stack: ${(position.techStack || []).join(', ') || 'n/a'}\nSoft skills: ${(position.softSkills || []).join(', ') || 'n/a'}`
+    : 'No specific position provided — analyze CV standalone.';
+
+  const { parsed, content, tokensUsed } = await chat({
+    apiKey: env.OPENROUTER_KEY,
+    model: env.OPENROUTER_MODEL_CV || 'anthropic/claude-sonnet-4-5',
+    jsonMode: true,
+    maxTokens: 2500,
+    timeoutMs: 90_000,
+    messages: [
+      { role: 'system', content: CV_ANALYSIS_SYSTEM },
+      { role: 'user', content: `${positionCtx}\n\n== CANDIDATE CV ==\n${cvText}\n\nAnalyze this CV.` },
+    ],
+  });
+
+  if (!parsed || !parsed.summary) {
+    const err = httpError(502, 'CV analysis did not return valid JSON');
+    err.detail = content.slice(0, 800);
+    throw err;
+  }
+  return {
+    summary:            parsed.summary,
+    claimedTechStack:   parsed.claimedTechStack   || [],
+    claimedExperience:  parsed.claimedExperience  || {},
+    keyStrengths:       parsed.keyStrengths        || [],
+    redFlags:           parsed.redFlags            || [],
+    questionsToVerify:  parsed.questionsToVerify   || [],
+    fitScore:           parsed.fitScore            || null,
+    fitRationale:       parsed.fitRationale        || '',
+    _tokensUsed:        tokensUsed,
+    _model:             env.OPENROUTER_MODEL_CV || 'anthropic/claude-sonnet-4-5',
+  };
 }
 
 
@@ -584,6 +689,39 @@ function jsonResponse(obj, status = 200, extraHeaders = {}) {
     status,
     headers: { 'Content-Type': 'application/json', ...extraHeaders },
   });
+}
+
+async function handleCreateStaff(body, env) {
+  const { email, password, apiKey } = body || {};
+  if (!email) throw httpError(400, 'email is required');
+  if (!password) throw httpError(400, 'password is required');
+
+  const resolvedApiKey = apiKey || env.FIREBASE_API_KEY;
+  if (!resolvedApiKey) {
+    throw httpError(400, 'Firebase API key is required (in body or environment)');
+  }
+
+  // Call Firebase Auth REST API signUp
+  const signupUrl = `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${resolvedApiKey}`;
+  const res = await fetch(signupUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email,
+      password,
+      returnSecureToken: true,
+    }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw httpError(res.status, data?.error?.message || 'Failed to create user in Firebase Auth');
+  }
+
+  return {
+    uid: data.localId,
+    email: data.email,
+  };
 }
 
 function httpError(status, message) {
