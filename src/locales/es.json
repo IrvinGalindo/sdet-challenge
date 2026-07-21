@@ -691,7 +691,11 @@
       "strongHire": "Contratación Fuerte",
       "noHire": "No Contratar",
       "undecided": "Indeciso"
-    }
+    },
+    "fitScoreTitle": "Distribución de Puntajes de Ajuste CV",
+    "fitScoreNoData": "No hay datos de preselección de CV disponibles.",
+    "techStackTitle": "Tecnologías Más Mencionadas",
+    "techStackNoData": "No hay datos de pila tecnológica disponibles."
   },
 
   "aiSuggestions": {

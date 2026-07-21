@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
-  BarChart, Bar, XAxis, Tooltip, ResponsiveContainer,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
 import { useTranslation } from 'react-i18next';
@@ -91,9 +91,41 @@ export default function OverviewAnalytics({ role, user }) {
 
         const timelineData = Object.entries(sortedTimeMap).map(([name, Interviews]) => ({ name, Interviews }));
 
+        // 1. Calculate CV Fit Score Distribution
+        const fitScoreCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        sessions.forEach(s => {
+          if (s.cvAnalysis && s.cvAnalysis.fitScore) {
+            const score = Math.round(s.cvAnalysis.fitScore);
+            if (fitScoreCounts[score] !== undefined) {
+              fitScoreCounts[score]++;
+            }
+          }
+        });
+        const fitScoreData = Object.entries(fitScoreCounts).map(([score, Count]) => ({
+          name: `${score} ★`,
+          Count
+        }));
+
+        // 2. Calculate Top Claimed Tech Stack
+        const techStackCounts = {};
+        sessions.forEach(s => {
+          if (s.cvAnalysis && Array.isArray(s.cvAnalysis.claimedTechStack)) {
+            s.cvAnalysis.claimedTechStack.forEach(tech => {
+              if (tech) {
+                const cleanTech = tech.trim();
+                techStackCounts[cleanTech] = (techStackCounts[cleanTech] || 0) + 1;
+              }
+            });
+          }
+        });
+        const techStackData = Object.entries(techStackCounts)
+          .map(([name, Count]) => ({ name, Count }))
+          .sort((a, b) => b.Count - a.Count)
+          .slice(0, 8);
+
         setData({
           openPos, closedPos, totalSessions, scheduled, completed,
-          outcomeData, timelineData
+          outcomeData, timelineData, fitScoreData, techStackData
         });
       } catch (err) {
         console.error('Failed to load analytics:', err);
@@ -203,6 +235,46 @@ export default function OverviewAnalytics({ role, user }) {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Fit Score Distribution */}
+        <div className="admin-card" style={{ padding: '24px' }}>
+          <h3 style={{ margin: '0 0 24px', color: 'var(--text-highlight)', fontSize: 16 }}>{t('analytics.fitScoreTitle')}</h3>
+          <div style={{ height: 260 }}>
+            {data.fitScoreData.some(d => d.Count > 0) ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.fitScoreData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis dataKey="name" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} />
+                  <YAxis stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip 
+                    contentStyle={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 8, color: '#fff' }} 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
+                  />
+                  <Bar dataKey="Count" fill="var(--accent-success)" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: 100 }}>{t('analytics.fitScoreNoData')}</div>}
+          </div>
+        </div>
+
+        {/* Top Technologies */}
+        <div className="admin-card" style={{ padding: '24px' }}>
+          <h3 style={{ margin: '0 0 24px', color: 'var(--text-highlight)', fontSize: 16 }}>{t('analytics.techStackTitle')}</h3>
+          <div style={{ height: 260 }}>
+            {data.techStackData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={data.techStackData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                  <XAxis type="number" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis dataKey="name" type="category" stroke="var(--text-muted)" fontSize={11} tickLine={false} axisLine={false} width={80} />
+                  <Tooltip 
+                    contentStyle={{ background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 8, color: '#fff' }} 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }} 
+                  />
+                  <Bar dataKey="Count" fill="var(--accent-info)" radius={[0, 4, 4, 0]} maxBarSize={20} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: 100 }}>{t('analytics.techStackNoData')}</div>}
           </div>
         </div>
 

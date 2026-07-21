@@ -80,7 +80,7 @@ REACT_APP_FIREBASE_PROJECT_ID=
 REACT_APP_FIREBASE_STORAGE_BUCKET=
 REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
 REACT_APP_FIREBASE_APP_ID=
-REACT_APP_AI_WORKER_URL=http://localhost:8787
+REACT_APP_AI_WORKER_URL=https://sdet-ai-worker.yankees00000.workers.dev
 ```
 
 > **Windows gotcha**: Do NOT wrap values in double quotes in `.env`. PowerShell/Vite will include the literal `"` character in the bundled string, breaking Firebase init.
@@ -179,7 +179,15 @@ Base URL: `REACT_APP_AI_WORKER_URL`. Requires `Authorization: Bearer <Firebase I
 
 ## 10. Design System
 
-CSS colors, shadows, border radii in `src/index.css`.
+- **Global styling**: Core definitions reside in `src/index.css` with component overrides in separate `.css` files.
+- **Premium design elements**:
+  - **Ambient floaters**: Animated ambient background orbs on `AdminLogin` using floating keyframes.
+  - **Glow & Gradients**: Buttons, active tabs, card hovers, active score radio buttons, and stage steps use layered gradient styles with box-shadow glow states.
+  - **Card wrappers**: Login container uses a `padding: 1px` wrapper technique to display a glowing gradient border.
+  - **Glass components**: Toasts, loaders, and panels utilize high-blur backdrops (`backdrop-filter`) with colored left-borders for semantic states.
+  - **Title animations**: Live/intro headers use animated shifting gradients (`gradientShift` keyframe).
+  - **Spinners**: Branded dual counter-rotating spinner loops.
+  - **Brand Assets**: The login screen displays the official favicon brand logo (`/favicon/android-chrome-192x192.png`) and the subtitle `"Presto AI Interview Portal"`.
 
 ---
 

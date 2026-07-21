@@ -691,7 +691,11 @@
       "strongHire": "Strong Hire",
       "noHire": "No Hire",
       "undecided": "Undecided"
-    }
+    },
+    "fitScoreTitle": "CV Fit Score Distribution",
+    "fitScoreNoData": "No CV pre-screen data available.",
+    "techStackTitle": "Top Claimed Technologies",
+    "techStackNoData": "No technology stack data available."
   },
 
   "aiSuggestions": {

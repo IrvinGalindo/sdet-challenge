@@ -272,3 +272,4 @@ This file is the canonical product specification. It documents every feature, it
 | 1.0 | 2026-07 | Initial spec capturing all features as of project launch |
 | 1.1 | 2026-07 | Added: Jitsi migration, mute sync, session auto-completion bug fix, link regeneration modal, favicon, i18n |
 | 1.2 | 2026-07 | Added: CV pre-screen analysis integration, date-based session expiry, fullscreen AI loading overlay modal, browser-to-locale sync logic |
+| 1.3 | 2026-07 | Added: Premium CSS UI design refresh (ambient floating orbs, pill tabs, glowing inputs/buttons), updated Admin Login header with branding logo, and deployed production Cloudflare AI worker |
