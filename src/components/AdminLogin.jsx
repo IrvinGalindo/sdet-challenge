@@ -48,8 +48,7 @@ export default function AdminLogin() {
         <div className="login-card">
 
           <div className="login-brand">
-            <div className="login-icon">✦</div>
-            <div className="login-badge">{t('login.adminPortal')}</div>
+            <img src="/favicon/android-chrome-192x192.png" alt="Presto AI Logo" className="login-logo" />
             <h1 className="login-title">{t('login.title')}</h1>
             <p className="login-subtitle">{t('login.subtitle')}</p>
           </div>
