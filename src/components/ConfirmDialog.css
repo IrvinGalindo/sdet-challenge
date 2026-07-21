@@ -3,13 +3,22 @@
   position: fixed;
   inset: 0;
   z-index: 10000;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
-  animation: cd-fade-in 0.15s ease;
+  animation: cd-fade-in 0.18s ease;
+}
+
+/* Subtle vignette on backdrop */
+.cd-backdrop::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.4) 100%);
+  pointer-events: none;
 }
 
 @keyframes cd-fade-in {
@@ -19,11 +28,11 @@
 
 /* ── Panel ─────────────────────────────────────────────────────────────────── */
 .cd-panel {
-  background: var(--bg-card, #1e1e2e);
-  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
-  border-radius: 14px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.04);
-  padding: 2rem 2rem 1.75rem;
+  background: #0d1526;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 16px;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
+  padding: 2.25rem 2rem 1.875rem;
   width: 100%;
   max-width: 420px;
   display: flex;
@@ -31,34 +40,51 @@
   align-items: center;
   text-align: center;
   gap: 0;
-  animation: cd-slide-up 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: cd-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
 }
 
 @keyframes cd-slide-up {
-  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0)   scale(1); }
 }
 
-/* ── Icon ring ─────────────────────────────────────────────────────────────── */
+/* ── Icon ring with pulse animation ────────────────────────────────────────── */
 .cd-icon-ring {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  margin-bottom: 1.1rem;
+  font-size: 26px;
+  margin-bottom: 1.2rem;
   flex-shrink: 0;
+  animation: cd-icon-appear 0.35s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
 }
 
-.cd-icon-ring--danger  { background: rgba(239, 68, 68, 0.12);  box-shadow: 0 0 0 1px rgba(239,68,68,0.25); }
-.cd-icon-ring--warning { background: rgba(245,158,11, 0.12);   box-shadow: 0 0 0 1px rgba(245,158,11,0.25); }
-.cd-icon-ring--info    { background: rgba(99,102,241, 0.12);   box-shadow: 0 0 0 1px rgba(99,102,241,0.25); }
+@keyframes cd-icon-appear {
+  0%   { opacity: 0; transform: scale(0.6); }
+  60%  { transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.cd-icon-ring--danger {
+  background: rgba(244, 63, 94, 0.12);
+  box-shadow: 0 0 0 1px rgba(244,63,94,0.3), 0 0 24px rgba(244,63,94,0.15);
+}
+.cd-icon-ring--warning {
+  background: rgba(245, 158, 11, 0.12);
+  box-shadow: 0 0 0 1px rgba(245,158,11,0.3), 0 0 24px rgba(245,158,11,0.12);
+}
+.cd-icon-ring--info {
+  background: rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 1px rgba(99,102,241,0.3), 0 0 24px rgba(99,102,241,0.15);
+}
 
 /* ── Text ──────────────────────────────────────────────────────────────────── */
 .cd-title {
-  margin: 0 0 0.6rem;
+  margin: 0 0 0.65rem;
   font-size: 17px;
   font-weight: 700;
   color: var(--text-highlight, #fff);
@@ -66,10 +92,10 @@
 }
 
 .cd-message {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.8rem;
   font-size: 13.5px;
   color: var(--text-muted, rgba(255,255,255,0.55));
-  line-height: 1.6;
+  line-height: 1.65;
 }
 
 /* ── "Cannot be undone" note ───────────────────────────────────────────────── */
@@ -77,13 +103,13 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 1.4rem;
-  padding: 8px 14px;
-  background: rgba(239, 68, 68, 0.07);
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin-bottom: 1.5rem;
+  padding: 9px 14px;
+  background: rgba(244, 63, 94, 0.07);
+  border: 1px solid rgba(244, 63, 94, 0.2);
   border-radius: 8px;
   font-size: 12.5px;
-  color: var(--accent-danger, #ef4444);
+  color: var(--accent-danger, #f43f5e);
   font-weight: 600;
   width: 100%;
   box-sizing: border-box;
@@ -95,7 +121,8 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent-danger, #ef4444);
+  background: var(--accent-danger, #f43f5e);
+  box-shadow: 0 0 6px var(--accent-danger);
 }
 
 /* ── Actions ───────────────────────────────────────────────────────────────── */
@@ -103,31 +130,72 @@
   display: flex;
   gap: 10px;
   width: 100%;
-  margin-top: 0.25rem;
+  margin-top: 0.35rem;
 }
 
 .cd-btn {
   flex: 1;
-  padding: 10px 16px;
-  border-radius: 8px;
+  padding: 11px 16px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 700;
   font-family: var(--font-ui, inherit);
   cursor: pointer;
   border: none;
-  transition: opacity 0.15s, transform 0.15s, background 0.15s;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
 }
 
-.cd-btn:hover  { opacity: 0.88; transform: translateY(-1px); }
-.cd-btn:active { transform: translateY(0); opacity: 1; }
+.cd-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 60%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.cd-btn:hover::after  { opacity: 1; }
+.cd-btn:hover  { transform: translateY(-1px); }
+.cd-btn:active { transform: translateY(0); }
 
 .cd-btn--ghost {
-  background: var(--bg-main, rgba(255,255,255,0.05));
-  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
   color: var(--text-muted, rgba(255,255,255,0.55));
 }
-.cd-btn--ghost:hover { color: var(--text-highlight, #fff); border-color: rgba(255,255,255,0.2); }
+.cd-btn--ghost:hover {
+  color: var(--text-highlight, #fff);
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.09);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
 
-.cd-btn--danger  { background: var(--accent-danger, #ef4444);  color: #fff; }
-.cd-btn--warning { background: var(--accent-warning, #f59e0b); color: #fff; }
-.cd-btn--info    { background: var(--accent-primary, #6366f1); color: #fff; }
+.cd-btn--danger {
+  background: linear-gradient(135deg, #f43f5e, #fb7185);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(244,63,94,0.35);
+}
+.cd-btn--danger:hover {
+  box-shadow: 0 6px 20px rgba(244,63,94,0.5);
+}
+
+.cd-btn--warning {
+  background: var(--gradient-gold);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(245,158,11,0.35);
+}
+.cd-btn--warning:hover {
+  box-shadow: 0 6px 20px rgba(245,158,11,0.5);
+}
+
+.cd-btn--info {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+}
+.cd-btn--info:hover {
+  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+}

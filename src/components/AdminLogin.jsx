@@ -44,13 +44,15 @@ export default function AdminLogin() {
 
   return (
     <div className="login-screen">
-      <div className="login-card">
+      <div className="login-card-wrapper">
+        <div className="login-card">
 
-        <div className="login-brand">
-          <div className="login-badge">{t('login.adminPortal')}</div>
-          <h1 className="login-title">{t('login.title')}</h1>
-          <p className="login-subtitle">{t('login.subtitle')}</p>
-        </div>
+          <div className="login-brand">
+            <div className="login-icon">✦</div>
+            <div className="login-badge">{t('login.adminPortal')}</div>
+            <h1 className="login-title">{t('login.title')}</h1>
+            <p className="login-subtitle">{t('login.subtitle')}</p>
+          </div>
 
         <form onSubmit={handleLogin} className="login-form">
           {error && (
@@ -93,7 +95,8 @@ export default function AdminLogin() {
           </button>
         </form>
 
-      </div>
+        </div>{/* login-card */}
+      </div>{/* login-card-wrapper */}
     </div>
   );
 }
