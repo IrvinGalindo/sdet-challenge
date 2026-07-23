@@ -681,10 +681,16 @@
     "topCandidates": "Top Candidates",
     "recentActivity": "Recent Activity",
     "closedPositions": "Closed Positions",
-    "completed": "Completed",
-    "volume": "Interview Volume",
+    "completed": "Completed Sessions",
+    "completionRate": "completion rate",
+    "hireRate": "Hire Rate",
+    "avgFitScore": "Avg Fit Score",
+    "fitScoreLabel": "out of 5",
+    "volume": "Interview Volume Over Time",
+    "volumeSubtitle": "Total and completed interviews per month",
     "timelineNoData": "No interview data available.",
     "outcomesTitle": "Hiring Outcomes",
+    "outcomesSubtitle": "Distribution of decisions across completed sessions",
     "outcomesNoData": "No completed interviews.",
     "outcomes": {
       "hire": "Hire",
@@ -692,10 +698,23 @@
       "noHire": "No Hire",
       "undecided": "Undecided"
     },
+    "hireRateTrend": "Hire Rate Trend",
+    "hireRateTrendSubtitle": "% of completed interviews resulting in a hire decision",
     "fitScoreTitle": "CV Fit Score Distribution",
+    "fitScoreSubtitle": "How pre-screened candidates score across all sessions",
     "fitScoreNoData": "No CV pre-screen data available.",
     "techStackTitle": "Top Claimed Technologies",
-    "techStackNoData": "No technology stack data available."
+    "techStackSubtitle": "Most common technologies across all candidate CVs",
+    "techStackNoData": "No technology stack data available.",
+    "positionTitle": "Sessions per Position",
+    "positionSubtitle": "Total interviews and hires per open role",
+    "fitPerPositionTitle": "Avg Fit Score by Position",
+    "fitPerPositionSubtitle": "Which positions attract the best-matched candidates",
+    "legendTotal": "Total",
+    "legendCompleted": "Completed",
+    "legendHires": "Hires",
+    "candidatesLabel": "Candidates",
+    "loading": "Loading analytics…"
   },
 
   "aiSuggestions": {

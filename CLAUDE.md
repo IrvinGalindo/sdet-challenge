@@ -276,6 +276,7 @@ When starting a new task, these are the most important files to read:
 - ❌ Anonymous default exports
 - ❌ `await` inside a `forEach` — use `Promise.all()`
 - ❌ `navigate(-1)` for back navigation where URL shape could loop
+- ❌ **Emojis in UI** — never use emoji characters (`📋`, `✅`, `⚠️`, etc.) as UI elements. Always import and use a `lucide-react` icon instead: `import { AlertTriangle } from 'lucide-react'`.
 
 ---
 

@@ -681,10 +681,16 @@
     "topCandidates": "Mejores Candidatos",
     "recentActivity": "Actividad Reciente",
     "closedPositions": "Posiciones Cerradas",
-    "completed": "Completado",
+    "completed": "Sesiones Completadas",
+    "completionRate": "tasa de completado",
+    "hireRate": "Tasa de Contratación",
+    "avgFitScore": "Ajuste Promedio",
+    "fitScoreLabel": "de 5",
     "volume": "Volumen de Entrevistas",
+    "volumeSubtitle": "Entrevistas totales y completadas por mes",
     "timelineNoData": "No hay datos de entrevistas disponibles.",
     "outcomesTitle": "Resultados de Contratación",
+    "outcomesSubtitle": "Distribución de decisiones en sesiones completadas",
     "outcomesNoData": "No hay entrevistas completadas.",
     "outcomes": {
       "hire": "Contratar",
@@ -692,10 +698,23 @@
       "noHire": "No Contratar",
       "undecided": "Indeciso"
     },
+    "hireRateTrend": "Tendencia de Contratación",
+    "hireRateTrendSubtitle": "% de entrevistas completadas con decisión de contratar",
     "fitScoreTitle": "Distribución de Puntajes de Ajuste CV",
+    "fitScoreSubtitle": "Cómo califican los candidatos preseleccionados",
     "fitScoreNoData": "No hay datos de preselección de CV disponibles.",
     "techStackTitle": "Tecnologías Más Mencionadas",
-    "techStackNoData": "No hay datos de pila tecnológica disponibles."
+    "techStackSubtitle": "Tecnologías más comunes en los CVs de candidatos",
+    "techStackNoData": "No hay datos de pila tecnológica disponibles.",
+    "positionTitle": "Sesiones por Posición",
+    "positionSubtitle": "Total de entrevistas y contrataciones por rol",
+    "fitPerPositionTitle": "Puntaje Promedio por Posición",
+    "fitPerPositionSubtitle": "Qué posiciones atraen los candidatos mejor calificados",
+    "legendTotal": "Total",
+    "legendCompleted": "Completadas",
+    "legendHires": "Contratados",
+    "candidatesLabel": "Candidatos",
+    "loading": "Cargando analíticas…"
   },
 
   "aiSuggestions": {

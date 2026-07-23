@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import './ConfirmDialog.css';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, CheckCircle2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -47,7 +47,12 @@ export default function ConfirmDialog({
 
   if (!isOpen) return null;
 
-  const iconMap = { danger: <AlertTriangle size={24} style={{ color: '#ef4444' }} />, warning: <AlertTriangle size={24} style={{ color: '#fbbf24' }} />, info: <Info size={24} style={{ color: '#3b82f6' }} /> };
+  const iconMap = {
+    danger: <AlertTriangle size={24} style={{ color: '#ef4444' }} />,
+    warning: <AlertTriangle size={24} style={{ color: '#fbbf24' }} />,
+    info: <Info size={24} style={{ color: '#06b6d4' }} />,
+    success: <CheckCircle2 size={24} style={{ color: '#10b981' }} />
+  };
 
   return (
     <div className="cd-backdrop" onClick={onCancel ? onCancel : undefined} role="dialog" aria-modal="true">

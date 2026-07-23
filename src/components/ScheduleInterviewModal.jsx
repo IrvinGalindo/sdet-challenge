@@ -193,9 +193,19 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
   return (
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h3 style={{ margin: 0 }}>{t('schedule.title')}</h3>
-          <button onClick={onClose} style={closeBtn}>&#x2715;</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+          <div>
+            <h3 style={{ margin: 0, fontFamily: '"Outfit", "Inter", sans-serif', fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', color: '#f0f6ff' }}>
+              {t('schedule.title')}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            style={closeBtn}
+          >
+            <X size={18} strokeWidth={2} />
+          </button>
         </div>
 
         {!created && (
@@ -314,11 +324,14 @@ export default function ScheduleInterviewModal({ position, currentUser, onClose,
 
         {created && (
           <div>
-            <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', borderRadius: 6, padding: '10px 14px', marginBottom: 16 }}>
-              <strong style={{ color: 'var(--accent-success)' }}>{t('schedule.success')}</strong>
-              <span style={{ color: 'var(--text-muted)', fontSize: 13, marginLeft: 8 }}>
-                {t('schedule.validUntilDate', { date: created.interviewDate })}
-              </span>
+            <div style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 10, padding: '12px 16px', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <CheckCircle size={16} style={{ color: '#06b6d4', flexShrink: 0 }} />
+              <div>
+                <strong style={{ color: '#06b6d4', display: 'block', marginBottom: 2 }}>{t('schedule.success')}</strong>
+                <span style={{ color: 'rgba(180,200,240,0.6)', fontSize: 12 }}>
+                  {t('schedule.validUntilDate', { date: created.interviewDate })}
+                </span>
+              </div>
             </div>
             <LinkRow label={t('schedule.candidateLinkLabel')} url={created.candidateUrl} accent="var(--accent-warning)" />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
@@ -388,12 +401,84 @@ function Field({ label, children }) {
   );
 }
 
-const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' };
-const modal = { background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 10, padding: '1.5rem', width: '100%', maxWidth: 560, color: '#fff', boxShadow: '0 20px 60px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' };
-const closeBtn = { background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: 18, cursor: 'pointer' };
-const input = { width: '100%', boxSizing: 'border-box', padding: '9px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 6, color: '#fff', fontFamily: 'inherit', fontSize: 14 };
-const uploadZone = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, width: '100%', boxSizing: 'border-box', padding: '16px 12px', background: 'var(--bg-main)', border: '1px dashed var(--border-color)', borderRadius: 6, cursor: 'pointer' };
-const cvStatusBox = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', boxSizing: 'border-box', padding: '10px 12px', background: 'var(--bg-main)', border: '1px solid var(--border-color)', borderRadius: 6 };
-const removeCvBtn = { background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' };
-const btnPrimary = { padding: '10px 20px', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer' };
-const btnGhost = { padding: '10px 18px', background: 'transparent', color: 'var(--text-muted)', border: '1px solid var(--border-color)', borderRadius: 6, cursor: 'pointer' };
+const overlay = {
+  position: 'fixed', inset: 0,
+  background: 'rgba(0,0,0,0.82)',
+  backdropFilter: 'blur(16px)',
+  WebkitBackdropFilter: 'blur(16px)',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  zIndex: 1000, padding: '20px',
+};
+const modal = {
+  background: '#080f1e',
+  border: '1px solid rgba(6,182,212,0.15)',
+  borderTop: '2px solid #06b6d4',
+  borderRadius: 14,
+  padding: '1.75rem',
+  width: '100%', maxWidth: 580,
+  color: '#f0f6ff',
+  boxShadow: '0 32px 80px rgba(0,0,0,0.7), 0 0 60px rgba(6,182,212,0.08)',
+  maxHeight: '90vh', overflowY: 'auto',
+};
+const closeBtn = {
+  background: 'rgba(255,255,255,0.05)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  color: 'rgba(180,200,240,0.6)',
+  width: 32, height: 32,
+  borderRadius: 8,
+  cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center',
+  transition: 'background 0.18s, color 0.18s',
+  flexShrink: 0,
+};
+const input = {
+  width: '100%', boxSizing: 'border-box',
+  padding: '9px 12px',
+  background: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(6,182,212,0.15)',
+  borderRadius: 8,
+  color: '#f0f6ff',
+  fontFamily: 'inherit', fontSize: 14,
+  outline: 'none',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
+};
+const uploadZone = {
+  display: 'flex', flexDirection: 'column',
+  alignItems: 'center', justifyContent: 'center', gap: 4,
+  width: '100%', boxSizing: 'border-box',
+  padding: '20px 12px',
+  background: 'rgba(6,182,212,0.03)',
+  border: '1px dashed rgba(6,182,212,0.3)',
+  borderRadius: 10, cursor: 'pointer',
+  transition: 'border-color 0.2s, background 0.2s',
+};
+const cvStatusBox = {
+  display: 'flex', alignItems: 'center', gap: 10,
+  width: '100%', boxSizing: 'border-box',
+  padding: '10px 12px',
+  background: 'rgba(255,255,255,0.03)',
+  border: '1px solid rgba(6,182,212,0.15)',
+  borderRadius: 8,
+};
+const removeCvBtn = {
+  background: 'transparent', border: 'none',
+  color: 'rgba(180,200,240,0.4)', cursor: 'pointer',
+  padding: 4, display: 'flex', alignItems: 'center',
+};
+const btnPrimary = {
+  padding: '10px 22px',
+  background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #7c3aed 100%)',
+  color: '#fff', border: 'none', borderRadius: 8,
+  fontWeight: 700, cursor: 'pointer',
+  boxShadow: '0 4px 16px rgba(6,182,212,0.3)',
+  transition: 'box-shadow 0.2s ease, opacity 0.2s ease',
+};
+const btnGhost = {
+  padding: '10px 18px',
+  background: 'transparent',
+  color: 'rgba(180,200,240,0.5)',
+  border: '1px solid rgba(255,255,255,0.08)',
+  borderRadius: 8, cursor: 'pointer',
+  transition: 'color 0.2s, border-color 0.2s',
+};
+

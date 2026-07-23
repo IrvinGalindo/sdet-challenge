@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'; import {
   Mic, MicOff, Video, VideoOff, PhoneOff, AlertTriangle, RefreshCw,
-  Ban, CheckCircle2, User, Mail, Clock, Bot, Zap, Briefcase, Camera, VolumeX, Check, X
+  Ban, CheckCircle2, User, Mail, Clock, Bot, Zap, Briefcase, Camera, VolumeX, Check, X, FileText, ChevronDown
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { auth, db, callLiveSuggestion, callCustomPrompt, callEvaluateSession, callBiasAudit } from '../firebase';
@@ -785,16 +785,17 @@ export default function Room() {
       {ending && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-          background: 'rgba(0,0,0,0.78)', backdropFilter: 'blur(4px)',
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)',
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           zIndex: 9999,
         }}>
           <div style={{
-            background: 'var(--bg-card)', padding: '3rem', borderRadius: 12,
-            border: '1px solid var(--accent-primary)', textAlign: 'center',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxWidth: 420, width: '90%',
+            background: '#080f1e', padding: '3rem', borderRadius: 14,
+            border: '1px solid rgba(6,182,212,0.25)', borderTop: '3px solid var(--brand-teal)',
+            textAlign: 'center',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.7), var(--glow-brand-sm)', maxWidth: 420, width: '90%',
           }}>
-            <h2 style={{ margin: '0 0 1rem', color: '#fff' }}>
+            <h2 style={{ margin: '0 0 1rem', color: '#fff', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>
               {endingStage === 'closing'   ? t('room.closingSession')
                : endingStage === 'saving'   ? t('room.savingReport')
                : endingStage === 'auditing' ? t('room.runningBiasAudit')
@@ -808,9 +809,10 @@ export default function Room() {
             </p>
             <div style={{
               width: 48, height: 48,
-              border: '4px solid var(--border-color)', borderTopColor: 'var(--accent-primary)',
+              border: '4px solid rgba(255,255,255,0.05)', borderTopColor: 'var(--brand-teal)',
               borderRadius: '50%', margin: '0 auto',
               animation: 'spin 0.8s linear infinite',
+              boxShadow: '0 0 15px rgba(6,182,212,0.2)',
             }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
@@ -820,10 +822,10 @@ export default function Room() {
       {/* Top bar */}
       <header style={topBar}>
         <div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          <div style={{ fontSize: 11, color: 'var(--brand-teal)', textTransform: 'uppercase', letterSpacing: 0.8, fontWeight: 700 }}>
             {isInterviewer ? t('room.interviewerRoom') : t('room.candidateRoom')}
           </div>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', fontFamily: '"Outfit", sans-serif' }}>
             {session.positionTitle || 'Interview'} — {session.candidateName || 'Candidate'}
           </div>
         </div>
@@ -836,15 +838,21 @@ export default function Room() {
               aria-label={t('positions.regenerateLinkBtn')}
               style={{
                 padding: '6px 12px',
-                background: 'rgba(99,102,241,0.12)',
-                color: 'var(--accent-primary)',
-                border: '1px solid rgba(99,102,241,0.3)',
+                background: 'rgba(6,182,212,0.08)',
+                color: 'var(--brand-teal)',
+                border: '1px solid rgba(6,182,212,0.25)',
                 borderRadius: 6, fontWeight: 600, cursor: 'pointer', fontSize: 12,
                 display: 'inline-flex', alignItems: 'center', gap: 6,
-                transition: 'background 0.15s',
+                transition: 'background 0.15s, border-color 0.15s',
               }}
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.25)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(99,102,241,0.12)'}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'rgba(6,182,212,0.15)';
+                e.currentTarget.style.borderColor = 'rgba(6,182,212,0.4)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'rgba(6,182,212,0.08)';
+                e.currentTarget.style.borderColor = 'rgba(6,182,212,0.25)';
+              }}
             >
               <RefreshCw size={13} />
               {t('positions.regenerateLinkBtn')}
@@ -860,6 +868,7 @@ export default function Room() {
                 background: ending ? 'var(--bg-card)' : 'var(--accent-danger)',
                 color: '#fff', border: ending ? '1px solid var(--border-color)' : 'none',
                 borderRadius: 6, fontWeight: 700, cursor: ending ? 'wait' : 'pointer',
+                boxShadow: ending ? 'none' : '0 4px 14px rgba(244,63,94,0.3)',
               }}
             >
               {ending
@@ -875,8 +884,10 @@ export default function Room() {
             <button
               onClick={() => navigate(`/admin/sessions/${sessionId}`)}
               style={{
-                padding: '8px 16px', background: 'var(--accent-primary)',
-                color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer'
+                padding: '8px 16px',
+                background: 'var(--gradient-brand)',
+                color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
+                boxShadow: 'var(--glow-brand-sm)',
               }}
             >
               {t('room.viewReportBtn')}
@@ -887,9 +898,11 @@ export default function Room() {
               onClick={handleGenerateReport}
               disabled={ending}
               style={{
-                padding: '8px 16px', background: ending ? 'var(--bg-card)' : 'var(--accent-primary)',
+                padding: '8px 16px',
+                background: ending ? 'var(--bg-card)' : 'var(--gradient-brand)',
                 color: '#fff', border: ending ? '1px solid var(--border-color)' : 'none',
-                borderRadius: 6, fontWeight: 700, cursor: ending ? 'wait' : 'pointer'
+                borderRadius: 6, fontWeight: 700, cursor: ending ? 'wait' : 'pointer',
+                boxShadow: ending ? 'none' : 'var(--glow-brand-sm)',
               }}
             >
               {ending
@@ -911,8 +924,8 @@ export default function Room() {
                 <div style={candidateVideoCol}>
                   {videoLeft ? (
                     <div style={{
-                      background: 'rgba(25, 26, 28, 0.4)',
-                      border: '1px dashed var(--border-color)',
+                      background: '#080f1e',
+                      border: '1px dashed rgba(6,182,212,0.3)',
                       borderRadius: 12,
                       padding: '24px 16px',
                       fontSize: 14,
@@ -923,23 +936,24 @@ export default function Room() {
                       alignItems: 'center',
                       gap: 8,
                       backdropFilter: 'blur(8px)',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.4), var(--glow-brand-sm)'
                     }}>
-                      <VolumeX size={24} style={{ color: 'var(--text-muted)' }} />
-                      <strong style={{ color: 'var(--text-highlight)' }}>{t('room.meetingEnded')}</strong>
+                      <VolumeX size={24} style={{ color: 'var(--brand-teal)' }} />
+                      <strong style={{ color: 'var(--text-highlight)', fontFamily: '"Outfit", sans-serif' }}>{t('room.meetingEnded')}</strong>
                       <span style={{ fontSize: 12 }}>{t('room.meetingEndedDesc')}</span>
                       <button
                         onClick={() => setVideoLeft(false)}
                         style={{
                           marginTop: 8,
-                          padding: '6px 14px',
-                          background: 'var(--accent-primary)',
+                          padding: '8px 16px',
+                          background: 'var(--gradient-brand)',
                           color: '#fff',
                           border: 'none',
-                          borderRadius: 6,
+                          borderRadius: 8,
                           cursor: 'pointer',
                           fontSize: 12,
-                          fontWeight: '600'
+                          fontWeight: '700',
+                          boxShadow: 'var(--glow-brand-sm)',
                         }}
                       >
                         Join Video Call
@@ -971,11 +985,16 @@ export default function Room() {
                     <div style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8 }}>{t('room.closeTab')}</div>
                   </div>
                 ) : isIntroPhase ? (
-                  <div style={{ background: 'linear-gradient(135deg,rgba(99,102,241,0.08),rgba(6,182,212,0.05))', border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, padding: 36, textAlign: 'center' }}>
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(124,58,237,0.05) 100%)',
+                    border: '1px solid rgba(6,182,212,0.25)',
+                    borderRadius: 12, padding: 36, textAlign: 'center',
+                    boxShadow: '0 16px 40px rgba(0,0,0,0.4), var(--glow-brand-sm)',
+                  }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                      <User size={48} style={{ color: 'var(--accent-primary)' }} />
+                      <User size={48} style={{ color: 'var(--brand-teal)' }} />
                     </div>
-                    <h2 style={{ margin: '0 0 10px', color: 'var(--text-highlight)' }}>{t('room.welcome')}</h2>
+                    <h2 style={{ margin: '0 0 10px', color: 'var(--text-highlight)', fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>{t('room.welcome')}</h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: 15, margin: 0, lineHeight: 1.6, whiteSpace: 'pre-line' }}>
                       {t('room.interviewerBeginShortly')}
                     </p>
@@ -989,7 +1008,7 @@ export default function Room() {
                   />
                 ) : (
                   <>
-                    <h2 style={{ margin: '0 0 12px' }}>{t('room.yourChallenges')}</h2>
+                    <h2 style={{ margin: '0 0 12px', fontFamily: '"Outfit", sans-serif' }}>{t('room.yourChallenges')}</h2>
                     <ChallengeRunner
                       challenges={orderedChallenges}
                       answers={answers}
@@ -1006,20 +1025,22 @@ export default function Room() {
               {/* ── Interview Script ──────────────────────────────────────── */}
               {isIntroPhase ? (
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(6,182,212,0.05))',
-                  border: '1px solid rgba(99,102,241,0.25)',
+                  background: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(124,58,237,0.05) 100%)',
+                  border: '1px solid rgba(6,182,212,0.25)',
                   borderRadius: 14, padding: 32, marginBottom: 24,
+                  boxShadow: '0 16px 40px rgba(0,0,0,0.4), var(--glow-brand-sm)',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
                     <div style={{
                       width: 52, height: 52, borderRadius: 14,
-                      background: 'rgba(99,102,241,0.18)',
+                      background: 'rgba(6,182,212,0.12)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       flexShrink: 0,
-                    }}><Mic size={26} style={{ color: 'var(--accent-primary)' }} /></div>
+                      boxShadow: 'inset 0 0 12px rgba(6,182,212,0.1)',
+                    }}><Mic size={26} style={{ color: 'var(--brand-teal)' }} /></div>
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, color: 'var(--accent-primary)', textTransform: 'uppercase', marginBottom: 4 }}>SESSION READY</div>
-                      <h2 style={{ margin: '0 0 6px', color: 'var(--text-highlight)', fontSize: 20 }}>{t('room.introGreeting')}</h2>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1.2, color: 'var(--brand-teal)', textTransform: 'uppercase', marginBottom: 4 }}>SESSION READY</div>
+                      <h2 style={{ margin: '0 0 6px', color: 'var(--text-highlight)', fontSize: 20, fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>{t('room.introGreeting')}</h2>
                       <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0, lineHeight: 1.6 }}>
                         {t('room.introGreetingDesc')}
                       </p>
@@ -1036,14 +1057,14 @@ export default function Room() {
                     onClick={handleStartQuestions}
                     style={{
                       padding: '12px 28px',
-                      background: 'linear-gradient(135deg, var(--accent-primary), #818cf8)',
+                      background: 'var(--gradient-brand)',
                       color: '#fff', border: 'none', borderRadius: 10,
                       fontWeight: 700, cursor: 'pointer', fontSize: 15,
-                      boxShadow: '0 4px 20px rgba(99,102,241,0.4)',
+                      boxShadow: 'var(--glow-brand-sm)',
                       transition: 'transform 0.15s, box-shadow 0.15s',
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(99,102,241,0.5)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px rgba(99,102,241,0.4)'; }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px)'; e.currentTarget.style.boxShadow = 'var(--glow-brand)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = 'var(--glow-brand-sm)'; }}
                   >
                     {t('room.startInterviewQuestionsBtn')}
                   </button>
@@ -1062,7 +1083,7 @@ export default function Room() {
 
               {/* ── Candidate challenge progress ──────────────────────────── */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 8px' }}>
-                <h2 style={{ margin: 0 }}>{t('room.candidateProgress')}</h2>
+                <h2 style={{ margin: 0, fontFamily: '"Outfit", sans-serif', letterSpacing: '-0.02em' }}>{t('room.candidateProgress')}</h2>
                 {orderedChallenges.length > 0 && (
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {Object.keys(answers).length}/{orderedChallenges.length} submitted
@@ -1079,11 +1100,11 @@ export default function Room() {
                   {orderedChallenges.map((c, i) => {
                     const ans = answers[c.id];
                     const kindLabel = c.kind === 'mcq' ? 'MCQ' : c.kind === 'code' ? 'CODE' : 'OPEN';
-                    const kindColor = c.kind === 'mcq' ? 'var(--accent-info)' : c.kind === 'code' ? '#a78bfa' : 'var(--accent-warning)';
+                    const kindColor = c.kind === 'mcq' ? 'var(--brand-teal)' : c.kind === 'code' ? '#a78bfa' : 'var(--accent-warning)';
                     return (
                       <div key={c.id} style={{
-                        background: ans ? 'rgba(16,185,129,0.04)' : 'var(--bg-card)',
-                        border: `1px solid ${ans ? 'rgba(16,185,129,0.25)' : 'var(--border-color)'}`,
+                        background: ans ? 'rgba(6,182,212,0.02)' : 'var(--bg-card)',
+                        border: `1px solid ${ans ? 'rgba(6,182,212,0.2)' : 'var(--border-color)'}`,
                         borderRadius: 10, padding: '12px 16px',
                         transition: 'border-color 0.3s',
                       }}>
@@ -1097,21 +1118,46 @@ export default function Room() {
                           </div>
                           <span style={{
                             fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10,
-                            background: ans ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.1)',
-                            color: ans ? 'var(--accent-success)' : 'var(--text-muted)',
+                            background: ans ? 'rgba(6,182,212,0.1)' : 'rgba(255,255,255,0.03)',
+                            color: ans ? 'var(--brand-teal)' : 'var(--text-muted)',
+                            display: 'inline-flex', alignItems: 'center', gap: 4,
                           }}>
-                            {ans ? '✓ Submitted' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><Clock size={12} /> Pending</span>}
+                            {ans ? (
+                              <>
+                                <CheckCircle2 size={12} strokeWidth={2.2} />
+                                <span>Submitted</span>
+                              </>
+                            ) : (
+                              <>
+                                <Clock size={12} />
+                                <span>Pending</span>
+                              </>
+                            )}
                           </span>
                         </div>
                         <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5, marginBottom: ans ? 10 : 0 }}>{c.prompt}</div>
                         {ans && (
-                          <div style={{ background: 'rgba(0,0,0,0.3)', borderLeft: '3px solid var(--accent-primary)', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 13 }}>
+                          <div style={{ background: 'rgba(0,0,0,0.3)', borderLeft: '3px solid var(--brand-teal)', borderRadius: '0 6px 6px 0', padding: '8px 12px', fontSize: 13 }}>
                             {ans.kind === 'mcq' && (
-                              <span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                                 <strong style={{ color: 'var(--text-muted)' }}>Selected: </strong>
-                                {ans.selectedOption}{' '}
-                                <span style={{ color: ans.isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 700 }}>
-                                  {ans.isCorrect ? '✔ Correct' : '✘ Incorrect'}
+                                <span style={{ color: 'var(--text-highlight)' }}>{ans.selectedOption}</span>
+                                <span style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  color: ans.isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)',
+                                  fontWeight: 700, fontSize: 12,
+                                }}>
+                                  {ans.isCorrect ? (
+                                    <>
+                                      <Check size={14} strokeWidth={2.5} />
+                                      <span>Correct</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <X size={14} strokeWidth={2.5} />
+                                      <span>Incorrect</span>
+                                    </>
+                                  )}
                                 </span>
                               </span>
                             )}
@@ -1145,9 +1191,10 @@ export default function Room() {
               {/* ── CV Analysis Panel (Interviewer only) ─────────────────── */}
               {session?.cvAnalysis && (
                 <div style={{
-                  background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(99,102,241,0.04))',
+                  background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(124,58,237,0.04))',
                   border: '1px solid rgba(6,182,212,0.25)',
                   borderRadius: 14, padding: 0, marginTop: 28, overflow: 'hidden',
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.25)',
                 }}>
                   {/* Header / toggle */}
                   <button
@@ -1159,8 +1206,8 @@ export default function Room() {
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 15 }}>📄</span>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-info)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                      <FileText size={16} style={{ color: 'var(--brand-teal)' }} />
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--brand-teal)', letterSpacing: 0.8, textTransform: 'uppercase' }}>
                         {t('room.cvAnalysis.title')}
                       </div>
                       {/* Fit score badge */}
@@ -1179,7 +1226,7 @@ export default function Room() {
                         </span>
                       )}
                     </div>
-                    <span style={{ fontSize: 12, color: 'var(--text-muted)', transform: cvPanelOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                    <ChevronDown size={14} style={{ color: 'var(--text-muted)', transform: cvPanelOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                   </button>
 
                   {cvPanelOpen && (
@@ -1200,8 +1247,8 @@ export default function Room() {
                             </div>
                             {session.cvAnalysis.keyStrengths.map((s, i) => (
                               <div key={i} style={{ fontSize: 12, color: 'var(--text-highlight)', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
-                                <span style={{ color: 'var(--accent-success)', flexShrink: 0, marginTop: 1 }}>✓</span>
-                                {s}
+                                <Check size={12} style={{ color: 'var(--accent-success)', flexShrink: 0, marginTop: 2 }} />
+                                <span>{s}</span>
                               </div>
                             ))}
                           </div>
@@ -1215,8 +1262,8 @@ export default function Room() {
                             </div>
                             {session.cvAnalysis.redFlags.map((f, i) => (
                               <div key={i} style={{ fontSize: 12, color: 'var(--text-highlight)', display: 'flex', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
-                                <span style={{ color: 'var(--accent-warning)', flexShrink: 0, marginTop: 1 }}>⚠</span>
-                                {f}
+                                <AlertTriangle size={12} style={{ color: 'var(--accent-warning)', flexShrink: 0, marginTop: 2 }} />
+                                <span>{f}</span>
                               </div>
                             ))}
                           </div>
@@ -1233,7 +1280,7 @@ export default function Room() {
                             {session.cvAnalysis.claimedTechStack.map((tech, i) => (
                               <span key={i} style={{
                                 fontSize: 11, padding: '3px 8px', borderRadius: 6,
-                                background: 'rgba(6,182,212,0.1)', color: 'var(--accent-info)',
+                                background: 'rgba(6,182,212,0.1)', color: 'var(--brand-teal)',
                                 border: '1px solid rgba(6,182,212,0.2)',
                               }}>{tech}</span>
                             ))}
@@ -1244,13 +1291,13 @@ export default function Room() {
                       {/* Questions to verify */}
                       {session.cvAnalysis.questionsToVerify?.length > 0 && (
                         <div style={{ marginTop: 14 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--brand-teal)', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 8 }}>
                             {t('room.cvAnalysis.questionsToVerify')}
                           </div>
                           {session.cvAnalysis.questionsToVerify.map((q, i) => (
                             <div key={i} style={{
                               fontSize: 12, color: 'var(--text-highlight)', padding: '6px 10px', marginBottom: 6,
-                              background: 'rgba(99,102,241,0.06)', borderLeft: '2px solid var(--accent-primary)', borderRadius: '0 6px 6px 0',
+                              background: 'rgba(6,182,212,0.04)', borderLeft: '2px solid var(--brand-teal)', borderRadius: '0 6px 6px 0',
                             }}>
                               {q}
                             </div>
@@ -1264,9 +1311,10 @@ export default function Room() {
 
               {/* ── AI Suggestions & Co-pilot (Interviewer only, horizontal grid layout) ── */}
               <div style={{
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.05), rgba(6,182,212,0.02))',
-                border: '1px solid var(--border-color)',
+                background: 'linear-gradient(135deg, rgba(6,182,212,0.08), rgba(124,58,237,0.02))',
+                border: '1px solid rgba(6,182,212,0.2)',
                 borderRadius: 14, padding: 20, marginTop: 32,
+                boxShadow: '0 12px 40px rgba(0,0,0,0.3)',
               }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 24 }}>
                   {/* Left: AI suggestions list */}
@@ -1283,9 +1331,9 @@ export default function Room() {
                         disabled={suggestionBusy || transcript.length === 0}
                         style={{
                           padding: '4px 10px', fontSize: 10, fontWeight: 700,
-                          background: suggestionBusy || transcript.length === 0 ? 'var(--bg-card)' : 'rgba(99,102,241,0.15)',
-                          border: '1px solid rgba(99,102,241,0.35)',
-                          color: suggestionBusy || transcript.length === 0 ? 'var(--text-muted)' : 'var(--accent-primary)',
+                          background: suggestionBusy || transcript.length === 0 ? 'var(--bg-card)' : 'rgba(6,182,212,0.12)',
+                          border: '1px solid rgba(6,182,212,0.25)',
+                          color: suggestionBusy || transcript.length === 0 ? 'var(--text-muted)' : 'var(--brand-teal)',
                           borderRadius: 6, cursor: suggestionBusy || transcript.length === 0 ? 'not-allowed' : 'pointer',
                           transition: 'all 0.2s',
                         }}
@@ -1338,7 +1386,7 @@ export default function Room() {
                           rows={3}
                           style={{
                             width: '100%', padding: '8px 10px', fontSize: 12,
-                            background: 'var(--bg-main)', border: '1px solid var(--border-color)',
+                            background: 'var(--bg-main)', border: '1px solid rgba(6,182,212,0.2)',
                             borderRadius: 8, color: 'var(--text-highlight)', outline: 'none',
                             resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
                             opacity: customBusy ? 0.5 : 1, boxSizing: 'border-box',
@@ -1349,10 +1397,11 @@ export default function Room() {
                           disabled={!customQuestion.trim() || customBusy}
                           style={{
                             marginTop: 8, width: '100%', padding: '8px', fontSize: 12, fontWeight: 700,
-                            background: customQuestion.trim() && !customBusy ? 'linear-gradient(135deg, #06b6d4, #0891b2)' : 'var(--bg-card)',
-                            border: '1px solid rgba(6,182,212,0.4)',
+                            background: customQuestion.trim() && !customBusy ? 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #7c3aed 100%)' : 'var(--bg-card)',
+                            border: 'none',
                             color: customQuestion.trim() && !customBusy ? '#fff' : 'var(--text-muted)',
                             borderRadius: 8, cursor: customQuestion.trim() && !customBusy ? 'pointer' : 'not-allowed',
+                            boxShadow: customQuestion.trim() && !customBusy ? '0 4px 12px rgba(6,182,212,0.3)' : 'none',
                             transition: 'all 0.2s',
                           }}
                         >
@@ -1367,8 +1416,8 @@ export default function Room() {
               {/* ── Session Info Horizontal Footer Bar (Interviewer only) ── */}
               <div style={{
                 display: 'flex', gap: 24, alignItems: 'center', justifyContent: 'space-between',
-                marginTop: 20, padding: '10px 20px', background: 'rgba(0,0,0,0.3)',
-                border: '1px solid var(--border-color)', borderRadius: 10,
+                marginTop: 20, padding: '10px 20px', background: 'rgba(6,182,212,0.03)',
+                border: '1px solid rgba(6,182,212,0.15)', borderRadius: 10,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <User size={14} style={{ marginRight: 6 }} />
@@ -1383,11 +1432,11 @@ export default function Room() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10B981', display: 'inline-block', marginRight: 6 }} />
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--accent-success)', display: 'inline-block', marginRight: 6 }} />
                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>STATUS:</span>
                   <span style={{
                     fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                    background: 'rgba(16,185,129,0.15)', color: 'var(--accent-success)',
+                    background: 'rgba(16,185,129,0.12)', color: 'var(--accent-success)',
                   }}>{session.status?.toUpperCase()}</span>
                 </div>
               </div>
@@ -1420,14 +1469,15 @@ export default function Room() {
                   <button
                     onClick={() => setVideoLeft(false)}
                     style={{
-                      padding: '4px 10px',
-                      background: 'var(--accent-primary)',
+                      padding: '6px 14px',
+                      background: 'var(--gradient-brand)',
                       color: '#fff',
                       border: 'none',
-                      borderRadius: 6,
+                      borderRadius: 8,
                       cursor: 'pointer',
                       fontSize: 11,
-                      fontWeight: '600'
+                      fontWeight: '700',
+                      boxShadow: 'var(--glow-brand-sm)',
                     }}
                   >
                     Start Call
@@ -1509,7 +1559,7 @@ function SidebarHeader({ title, mic, muted, onToggleMute }) {
   const { t } = useTranslation();
   return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-      <h3 style={{ margin: 0, fontSize: 14, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <h3 style={{ margin: 0, fontSize: 14, color: 'var(--brand-teal)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
         {title}
       </h3>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1545,7 +1595,7 @@ function MicStatusDot({ supported, listening, muted }) {
 
 function SectionHeading({ children }) {
   return (
-    <h3 style={{ margin: '20px 0 10px', fontSize: 13, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+    <h3 style={{ margin: '20px 0 10px', fontSize: 13, color: 'var(--brand-teal)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
       {children}
     </h3>
   );
@@ -1557,11 +1607,11 @@ function SectionHeading({ children }) {
 function SessionStatus({ status }) {
   const { t } = useTranslation();
   const m = {
-    scheduled: { bg: 'rgba(99,102,241,0.18)', fg: 'var(--accent-primary)', label: t('room.status.scheduled') },
-    live: { bg: 'rgba(16,185,129,0.18)', fg: 'var(--accent-success)', label: t('room.status.live') },
-    completed: { bg: 'rgba(148,163,184,0.18)', fg: 'var(--text-muted)', label: t('room.status.completed') },
+    scheduled: { bg: 'rgba(6,182,212,0.08)', fg: 'var(--brand-teal)', label: t('room.status.scheduled') },
+    live: { bg: 'rgba(16,185,129,0.12)', fg: 'var(--accent-success)', label: t('room.status.live') },
+    completed: { bg: 'rgba(255,255,255,0.05)', fg: 'var(--text-muted)', label: t('room.status.completed') },
   };
-  const c = m[status] || { bg: 'rgba(99,102,241,0.18)', fg: 'var(--accent-primary)', label: status };
+  const c = m[status] || { bg: 'rgba(6,182,212,0.08)', fg: 'var(--brand-teal)', label: status };
   return (
     <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 12, background: c.bg, color: c.fg, textTransform: 'uppercase', letterSpacing: 0.5 }}>
       {c.label || 'scheduled'}
@@ -1593,19 +1643,24 @@ function Center({ children }) {
 const pageWrap = { minHeight: '100vh', display: 'flex', flexDirection: 'column', color: '#fff' };
 const topBar = {
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '14px 24px', background: 'var(--bg-panel)',
-  borderBottom: '1px solid var(--border-color)',
+  padding: '14px 24px', background: 'linear-gradient(to right, var(--bg-panel) 0%, var(--bg-main) 100%)',
+  borderBottom: '1px solid rgba(6,182,212,0.15)',
+  boxShadow: '0 4px 20px rgba(0,0,0,0.4), inset 0 -1px 0 rgba(6,182,212,0.05)',
 };
 const layout = { flex: 1, display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 24, padding: 24, alignItems: 'start' };
 const mainPanel = { minWidth: 0 };
 const sidePanel = {
-  background: 'var(--bg-panel)', border: '1px solid var(--border-color)',
-  borderRadius: 10, padding: '1.25rem', position: 'sticky', top: 24,
+  background: 'var(--bg-glass)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(6,182,212,0.15)',
+  borderRadius: 14, padding: '1.25rem', position: 'sticky', top: 24,
+  boxShadow: 'var(--shadow-raised)',
 };
 const infoChip = {
   display: 'inline-flex', alignItems: 'center', gap: 5,
   padding: '5px 12px', borderRadius: 20, fontSize: 13,
-  background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
+  background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.25)',
   color: 'var(--text-highlight)', fontWeight: 500,
 };
 
@@ -1625,6 +1680,7 @@ const candidateVideoCol = {
   margin: '0 auto 12px',
   flexShrink: 0,
 };
+
 
 
 

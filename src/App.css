@@ -43,7 +43,8 @@
   left: 8%;
   right: 8%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.35), rgba(168,85,247,0.25), transparent);
+  background: linear-gradient(90deg, transparent, rgba(6,182,212,0.45), rgba(124,58,237,0.35), transparent);
+  box-shadow: 0 0 10px rgba(6,182,212,0.2);
   pointer-events: none;
 }
 
@@ -350,10 +351,10 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(99,102,241,0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(99,102,241,0.04) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,0.5) 0%, transparent 75%);
+    linear-gradient(rgba(6,182,212,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6,182,212,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, rgba(0,0,0,0.6) 0%, transparent 78%);
   pointer-events: none;
 }
 
@@ -385,11 +386,11 @@
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
+  left: 8%;
+  right: 8%;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(99,102,241,0.5), rgba(168,85,247,0.4), transparent);
-  border-radius: 50%;
+  background: linear-gradient(90deg, transparent, rgba(6,182,212,0.55), rgba(59,130,246,0.45), rgba(124,58,237,0.45), transparent);
+  box-shadow: 0 0 12px rgba(6,182,212,0.25);
   pointer-events: none;
 }
 
@@ -403,23 +404,24 @@
   text-transform: uppercase;
   letter-spacing: 2.5px;
   font-weight: 800;
-  color: var(--accent-hover);
-  background: rgba(99,102,241,0.12);
+  color: var(--brand-teal);
+  background: rgba(6,182,212,0.10);
   padding: 4px 14px;
   border-radius: 99px;
-  border: 1px solid rgba(99,102,241,0.3);
+  border: 1px solid rgba(6,182,212,0.28);
 }
 
 /* Animated gradient intro title */
 .intro-title {
   font-size: 3rem;
-  font-weight: 800;
-  background: linear-gradient(135deg, #818cf8, #a78bfa, #ec4899, #818cf8);
+  font-weight: 900;
+  font-family: var(--font-display);
+  background: linear-gradient(135deg, #22d3ee, #60a5fa, #a78bfa, #22d3ee);
   background-size: 300% 300%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -1.5px;
+  letter-spacing: -0.05em;
   margin: 0;
   animation: gradientShift 5s ease infinite;
 }
@@ -460,14 +462,15 @@
 .intro-stage-num {
   width: 22px; height: 22px;
   border-radius: 50%;
-  background: var(--gradient-primary);
+  background: var(--gradient-brand);
   color: #fff;
   font-size: 11px;
   font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   font-family: var(--font-mono);
-  box-shadow: 0 0 10px rgba(99,102,241,0.4);
+  box-shadow: 0 0 12px rgba(6,182,212,0.45);
+  font-variant-numeric: tabular-nums;
 }
 
 .intro-stage-icon { font-size: 16px; }

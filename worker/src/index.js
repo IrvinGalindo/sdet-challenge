@@ -174,38 +174,119 @@ Hard rules:
 - questionsToVerify must be tied to specific CV claims, not generic interview questions.
 - fitScore must reflect the position requirements — a generalist CV for a highly specialized role should score low even if the candidate looks strong overall.`;
 
-const GENERATE_SYSTEM = `You are a senior technical interviewer. Generate a question bank for one role.
-Return ONLY a JSON object — no markdown, no commentary — matching this schema:
+const GENERATE_SYSTEM = `You are a senior technical interviewer. Generate a precise, role-calibrated question bank.
+Return ONLY a JSON object — no markdown, no commentary — matching this exact schema:
 {
   "questions": [
     {
-      "title":     "short label",
-      "prompt":    "the actual question",
-      "rubric":    "what a strong answer includes",
-      "category":  "Testing Fundamentals | API & Microservices | Test Automation | CI/CD & DevOps | Leadership | Performance Testing | Behavioral | Other",
-      "weight":    1-5
+      "title":    "short label (max 8 words)",
+      "prompt":   "the actual interview question — specific and probing, not generic",
+      "rubric":   "what a STRONG answer must include — cite specific concepts, patterns, or evidence expected",
+      "category": "Testing Fundamentals | API & Microservices | Test Automation | CI/CD & DevOps | Leadership | Performance Testing | Security | Behavioral | System Design | Other",
+      "weight":   1-5
     }
-    // 8-12 entries, mix of behavioral and technical, ordered easy→hard
+    // 10-14 entries total.
+    // ⚠ ORDERING IS CRITICAL: array index 0 = Question 1 shown to the interviewer.
+    // Order the ENTIRE array easy → hard as one continuous interview flow.
+    // Do NOT group by category — interleave categories so difficulty ramps up naturally.
   ],
   "challenges": [
     {
-      "kind":         "mcq" | "open" | "code",
-      "title":        "short label",
-      "prompt":       "instructions to candidate — language-agnostic for code challenges",
-      "language":     null,
-      "starterCode":  null,
-      "options":      [{ "label": "A", "text": "...", "correct": false }, …]  /* mcq only, exactly 4, exactly 1 correct */,
-      "rubric":       "what a strong submission demonstrates — language-agnostic"
+      "kind":        "mcq" | "open" | "code",
+      "title":       "short label (max 8 words)",
+      "prompt":      "instructions to candidate — detailed, scenario-based, language-agnostic for code challenges",
+      "difficulty":  "easy" | "medium" | "hard",
+      "language":    null,
+      "starterCode": null,
+      "options":     [{ "label": "A", "text": "...", "correct": false }],
+      "rubric":      "what a strong submission demonstrates — cite specific techniques, edge cases, or design decisions expected"
     }
-    // 3-5 entries — at least 1 mcq and 1 open. ONLY include "code" challenges if the position is a software engineering or programming role. Non-technical or leadership roles (like CEO, HR, Sales) MUST NOT have code challenges.
+    // 4-6 entries.
+    // ⚠ ORDERING IS CRITICAL: array index 0 = Challenge 1 shown to the candidate.
+    // Order: easy first, medium next, hard last. This is the exact sequence used in the interview.
+    // At least 1 mcq and 1 open challenge always.
+    // Include "code" challenges ONLY if the role is software engineering or programming.
+    // Non-technical / leadership roles (CEO, HR, Sales, PM) MUST NOT have code challenges.
   ]
 }
 
-Hard rules for code challenges:
-- ALWAYS set language to null — the candidate chooses their preferred language at interview time.
-- ALWAYS set starterCode to null — starter templates are generated per-language automatically.
-- Write the prompt and rubric in a language-agnostic way (e.g. "implement a function", not "write a JavaScript function").
-- Do NOT mention any specific programming language in code challenge prompts or rubrics.`;
+== SENIORITY CALIBRATION ==
+Scale ALL questions and challenges to match the role's seniority level:
+- junior:    Fundamentals, tool usage, basic debugging, follow well-defined patterns, simple coding tasks.
+- mid:       System design basics, test architecture choices, CI/CD integration, trade-off awareness.
+- senior:    Design decisions with trade-offs, past failures & lessons, test strategy at scale, mentoring evidence.
+- staff/lead/principal: Org-level strategy, build-vs-buy decisions, stakeholder alignment, cross-team influence.
+- Do NOT ask junior-level fundamentals to a senior/staff candidate, or architectural questions to a junior.
+
+== TECH STACK COVERAGE ==
+- Every technology listed in the required tech stack MUST appear in at least one question prompt or challenge rubric.
+- Do not invent technologies not listed in the tech stack — questions must be grounded in what was specified.
+- If a skill appears only in one question, make that question count: probe depth, not just familiarity.
+
+== DOMAIN SCENARIOS ==
+- For open and code challenges: use the position's business domain as the scenario backdrop.
+  Example: fintech → "a payment processing service", healthtech → "a patient record API", e-commerce → "a cart checkout flow".
+- This makes challenges feel realistic and tests domain awareness, not just abstract coding.
+
+== QUESTION QUALITY RULES ==
+- No two questions may probe the same skill from the same angle. If two questions are similar, merge or replace one.
+- Avoid generic openers like "Tell me about yourself" or "What is unit testing?"
+- Each question must have a specific, evidence-demanding rubric — not just "candidate demonstrates understanding".
+- Mix question types: scenario-based ("Given X, how would you..."), evidence-based ("Describe a time when..."), and design-based ("How would you design...").
+
+== WEIGHT GUIDANCE ==
+weight reflects how central this skill is to the role's daily work — not just difficulty:
+- 5: Core to the role — cannot hire without this
+- 4: Important differentiator between good and great candidates
+- 3: Valuable but teachable on the job
+- 2: Nice-to-have; useful in some contexts
+- 1: Peripheral or hygiene check
+
+== MCQ DISTRACTOR QUALITY ==
+For mcq challenges:
+- Exactly 4 options, exactly 1 correct.
+- Wrong options must be PLAUSIBLE — common misconceptions, partial truths, or things that sound right but have a subtle flaw.
+- NEVER use obviously wrong answers, nonsense options, or "none of the above".
+- The correct answer should not be the longest/most detailed option by default.
+
+== CODE CHALLENGE RULES ==
+- ALWAYS set language to null — the candidate picks their language at interview time.
+- ALWAYS set starterCode to null — per-language templates are generated automatically.
+- Write prompts and rubrics language-agnostically: say "implement a function" not "write a Python function".
+- Do NOT mention any specific programming language in code challenge prompts or rubrics.
+- Scenarios must be realistic and domain-relevant (see DOMAIN SCENARIOS above).
+
+== TIME-BOX CONSTRAINT (critical) ==
+The total interview lasts 1 hour and includes verbal Q&A plus challenges. Each challenge must be completable in 10-20 minutes maximum by a candidate typing in a single Monaco editor window.
+
+NEVER generate challenges that require:
+- Building multiple files or folders (e.g., "design a full framework", "create a project structure")
+- Installing or importing external libraries the candidate cannot access in a plain editor
+- Implementing more than ONE focused concept (e.g., a base class + builder + test case is THREE things)
+- Writing more than ~60-80 lines of meaningful code
+
+INSTEAD, challenges should be:
+- Narrowly scoped to ONE specific skill (e.g., "write a function that retries a failing HTTP call with exponential backoff")
+- Self-contained: all context, constraints, and inputs are in the prompt itself
+- Solvable with standard library features of any language
+- Realistic but minimal: a single class, function, or algorithm is enough
+
+== SEQUENCE ORDERING (do this before writing any JSON) ==
+The array order is the interview order. It is stored and displayed exactly as you write it.
+- Questions: write ONE continuous list, easiest first, hardest last. Do NOT group by category.
+  Example good order: [easy fundamentals Q, easy tool Q, medium scenario Q, medium design Q, hard architecture Q, hard behavioral Q]
+  Example BAD order:  [all Testing Fundamentals, then all API, then all Behavioral] — this creates a jarring difficulty spike.
+- Challenges: write easy → medium → hard in that exact sequence.
+- Once you finalize the order, do NOT shuffle or re-sort when assembling the JSON output.
+
+== FINAL CHECK (do this before returning) ==
+Verify:
+1. Every technology in the provided tech stack appears in at least one question or challenge.
+2. Question difficulty and style match the stated seniority level.
+3. No two questions are redundant.
+4. Challenges appear in order: easy → medium → hard.
+5. All MCQ distractors are plausible.
+6. Questions array is ordered easy → hard as one continuous flow (NOT grouped by category).`;
 
 export default {
   async fetch(request, env) {
@@ -291,21 +372,45 @@ async function handleGenerateQuestionBank(body, env) {
   const pos = body?.position;
   if (!pos || !pos.title) throw httpError(400, 'position is required');
 
-  const userPrompt = `Position: ${pos.title}
-Seniority: ${pos.seniority}
-Domain: ${pos.domain || ''}
-Required tech stack: ${(pos.techStack || []).join(', ')}
-Soft skills to probe: ${(pos.softSkills || []).join(', ')}
-Summary: ${pos.summary || ''}
+  // Build a numbered tech stack list so the model can cross-reference coverage.
+  const techList = (pos.techStack || []).map((t, i) => `  ${i + 1}. ${t}`).join('\n') || '  (none specified)';
+  const softList = (pos.softSkills || []).map((s, i) => `  ${i + 1}. ${s}`).join('\n') || '  (none specified)';
 
-Generate the question bank.`;
+  const userPrompt = `\
+== ROLE CONTEXT ==
+Title:     ${pos.title}
+Seniority: ${pos.seniority || 'mid'}
+Domain:    ${pos.domain || '(not specified — use general software context)'}
+Summary:   ${pos.summary || '(not provided)'}
+
+== REQUIRED TECHNICAL SKILLS (all must be covered) ==
+${techList}
+
+== SOFT SKILLS TO PROBE ==
+${softList}
+
+== GENERATION INSTRUCTIONS ==
+- Calibrate every question and challenge to the "${pos.seniority || 'mid'}" seniority level.
+- Use "${pos.domain || 'software engineering'}" as the scenario backdrop for domain-specific challenges.
+- Every technical skill listed above MUST appear in at least one question prompt or challenge rubric.
+- Do NOT add technologies not listed above.
+- Order questions easy → hard within each category.
+- Challenges must include at least one easy, one medium, one hard.
+
+Before returning, verify:
+1. Each tech skill above (1–${(pos.techStack || []).length}) appears in at least one question or challenge.
+2. All MCQ distractors are plausible (not obviously wrong).
+3. No two questions probe the same skill from the same angle.
+4. Difficulty matches the seniority level.
+
+Generate the question bank now.`;
 
   const { parsed, content, tokensUsed } = await chat({
     apiKey: env.OPENROUTER_KEY,
     model: env.OPENROUTER_MODEL_GENERATE,
     jsonMode: true,
-    maxTokens: 8000,
-    timeoutMs: 180_000, // 3 min — generating ~12 questions + ~5 challenges with rubrics is slow
+    maxTokens: 10_000,
+    timeoutMs: 180_000, // 3 min — generating 10-14 questions + 4-6 challenges with rubrics is slow
     messages: [
       { role: 'system', content: GENERATE_SYSTEM },
       { role: 'user', content: userPrompt },

@@ -1,4 +1,4 @@
-import { Settings, FileText } from 'lucide-react';
+import { Settings, FileText, Check, X, Clock } from 'lucide-react';
 import React, { useEffect, useState, Suspense } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { auth, db, callEvaluateSession } from '../firebase';
@@ -617,7 +617,7 @@ export default function SessionReport() {
       message: t('report.hireConfirmMessage', { title: position.title }),
       confirmLabel: t('report.hireConfirmBtn'),
       cancelLabel: t('common.cancel'),
-      variant: 'warning',
+      variant: 'success',
     });
     if (!ok) return;
     setClosing(true);
@@ -875,7 +875,10 @@ export default function SessionReport() {
               alignItems: 'center',
               gap: 6
             }}>
-              <span>{recSymbol}</span> {recLabel}
+              <span>
+                {recType === 'proceed' ? <Check size={14} strokeWidth={2.5} /> : recType === 'decline' ? <X size={14} strokeWidth={2.5} /> : <Clock size={14} />}
+              </span>{' '}
+              {recLabel}
             </div>
             <div style={{
               background: 'rgba(255, 255, 255, 0.22)',
@@ -1345,14 +1348,16 @@ function FitBadge({ value }) {
 function RecommendationBadge({ value }) {
   const { t } = useTranslation();
   const m = {
-    proceed: { bg: 'rgba(16,185,129,0.18)', fg: 'var(--accent-success)', label: t('report.hiringRecommendation.proceed'), icon: '✓' },
-    hold:    { bg: 'rgba(245,158,11,0.18)', fg: 'var(--accent-warning)', label: t('report.hiringRecommendation.hold'),    icon: '⏸' },
-    decline: { bg: 'rgba(239,68,68,0.18)',  fg: 'var(--accent-danger)',  label: t('report.hiringRecommendation.decline'), icon: '✗' },
+    proceed: { bg: 'rgba(16,185,129,0.18)', fg: 'var(--accent-success)', label: t('report.hiringRecommendation.proceed') },
+    hold:    { bg: 'rgba(245,158,11,0.18)', fg: 'var(--accent-warning)', label: t('report.hiringRecommendation.hold') },
+    decline: { bg: 'rgba(239,68,68,0.18)',  fg: 'var(--accent-danger)',  label: t('report.hiringRecommendation.decline') },
   };
   const c = m[value] || m.hold;
   return (
     <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, padding: '8px 16px', borderRadius: 8, background: c.bg, color: c.fg, border: `1px solid ${c.fg}` }}>
-      <span style={{ fontSize: 16 }}>{c.icon}</span>
+      <span style={{ display: 'flex', alignItems: 'center' }}>
+        {value === 'proceed' ? <Check size={16} strokeWidth={2.5} /> : value === 'decline' ? <X size={16} strokeWidth={2.5} /> : <Clock size={16} />}
+      </span>
       <span>{t('report.recommendationLabel')} {c.label}</span>
     </div>
   );

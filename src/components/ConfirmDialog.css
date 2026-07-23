@@ -28,10 +28,10 @@
 
 /* ── Panel ─────────────────────────────────────────────────────────────────── */
 .cd-panel {
-  background: #0d1526;
-  border: 1px solid rgba(255,255,255,0.09);
+  background: #080f1e;
+  border: 1px solid rgba(6,182,212,0.12);
   border-radius: 16px;
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px rgba(6,182,212,0.06);
   padding: 2.25rem 2rem 1.875rem;
   width: 100%;
   max-width: 420px;
@@ -78,8 +78,12 @@
   box-shadow: 0 0 0 1px rgba(245,158,11,0.3), 0 0 24px rgba(245,158,11,0.12);
 }
 .cd-icon-ring--info {
-  background: rgba(99, 102, 241, 0.12);
-  box-shadow: 0 0 0 1px rgba(99,102,241,0.3), 0 0 24px rgba(99,102,241,0.15);
+  background: rgba(6, 182, 212, 0.1);
+  box-shadow: 0 0 0 1px rgba(6,182,212,0.3), 0 0 24px rgba(6,182,212,0.18);
+}
+.cd-icon-ring--success {
+  background: rgba(16, 185, 129, 0.12);
+  box-shadow: 0 0 0 1px rgba(16,185,129,0.3), 0 0 24px rgba(16,185,129,0.15);
 }
 
 /* ── Text ──────────────────────────────────────────────────────────────────── */
@@ -192,10 +196,19 @@
 }
 
 .cd-btn--info {
-  background: var(--gradient-primary);
+  background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #7c3aed 100%);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(99,102,241,0.35);
+  box-shadow: 0 4px 14px rgba(6,182,212,0.35);
 }
 .cd-btn--info:hover {
-  box-shadow: 0 6px 20px rgba(99,102,241,0.5);
+  box-shadow: 0 6px 20px rgba(6,182,212,0.55);
+}
+
+.cd-btn--success {
+  background: var(--gradient-success);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(16,185,129,0.35);
+}
+.cd-btn--success:hover {
+  box-shadow: 0 6px 20px rgba(16,185,129,0.5);
 }

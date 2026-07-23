@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
 // Multi-choice challenge — exactly one correct option, scored automatically.
 // Also captures lightweight forensics (think-time, click changes) for the
@@ -72,30 +73,39 @@ export default function MCQChallenge({ challenge, onSubmit, locked, previousAnsw
         })}
       </div>
 
-      {!locked && (
-        <button
-          onClick={handleSubmit}
-          disabled={!selected}
-          style={{
-            padding: '10px 20px',
-            background: 'var(--accent-success)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            fontWeight: 700,
-            cursor: selected ? 'pointer' : 'not-allowed',
-            opacity: selected ? 1 : 0.5,
-          }}
-        >
-          Submit Answer →
-        </button>
-      )}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+        {!locked && (
+          <button
+            onClick={handleSubmit}
+            disabled={!selected}
+            style={{
+              padding: '10px 20px',
+              background: 'var(--accent-success)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 6,
+              fontWeight: 700,
+              cursor: selected ? 'pointer' : 'not-allowed',
+              opacity: selected ? 1 : 0.5,
+            }}
+          >
+            Submit Answer →
+          </button>
+        )}
 
-      {locked && previousAnswer && (
-        <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', padding: '8px 12px', borderRadius: 6, fontSize: 13 }}>
-          ✓ Submitted: <strong>{previousAnswer.selectedOption}</strong>
-        </div>
-      )}
+        {locked && previousAnswer && (
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: 'rgba(16,185,129,0.1)',
+            border: '1px solid var(--accent-success)',
+            padding: '6px 12px', borderRadius: 6,
+            fontSize: 13, color: 'var(--accent-success)',
+          }}>
+            <CheckCircle2 size={14} strokeWidth={2} />
+            Submitted: <strong>{previousAnswer.selectedOption}</strong>
+          </span>
+        )}
+      </div>
     </div>
   );
 }

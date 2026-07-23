@@ -80,12 +80,12 @@ export default function CompareCandidates() {
   const handleClosePosition = async (winnerSession) => {
     if (!position) return;
     const ok = await openConfirm({
-      title: t('report.hireConfirmTitle', { name: winnerSession.candidateName }),
-      message: t('report.hireConfirmMessage', { title: position.title }),
-      confirmLabel: t('report.hireConfirmBtn'),
-      cancelLabel: t('common.cancel'),
-      variant: 'warning',
-    });
+       title: t('report.hireConfirmTitle', { name: winnerSession.candidateName }),
+       message: t('report.hireConfirmMessage', { title: position.title }),
+       confirmLabel: t('report.hireConfirmBtn'),
+       cancelLabel: t('common.cancel'),
+       variant: 'success',
+     });
     if (!ok) return;
     setClosing(true);
     try {

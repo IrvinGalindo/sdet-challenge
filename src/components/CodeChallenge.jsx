@@ -1,4 +1,4 @@
-import { Globe } from 'lucide-react';
+import { Globe, CheckCircle2 } from 'lucide-react';
 import React, { useState, useRef, Suspense } from 'react';
 
 const Editor = React.lazy(() => import('@monaco-editor/react'));
@@ -294,6 +294,7 @@ export default function CodeChallenge({ challenge, onSubmit, locked, previousAns
           </button>
         ) : (
           <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
             background: 'rgba(16,185,129,0.1)',
             border: '1px solid var(--accent-success)',
             padding: '6px 12px',
@@ -301,7 +302,8 @@ export default function CodeChallenge({ challenge, onSubmit, locked, previousAns
             fontSize: 13,
             color: 'var(--accent-success)',
           }}>
-            ✓ Submitted in {currentMeta.label}
+            <CheckCircle2 size={14} strokeWidth={2} />
+            Submitted in {currentMeta.label}
           </span>
         )}
       </div>

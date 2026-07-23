@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
 // Open-ended challenge — text response, AI-evaluated in Phase 4.
 // Also captures forensics (paste events, timing) so the evaluator can flag
@@ -95,8 +96,9 @@ export default function OpenChallenge({ challenge, onSubmit, locked, previousAns
           </button>
         )}
         {locked && (
-          <span style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', padding: '6px 12px', borderRadius: 6, fontSize: 13, color: 'var(--accent-success)' }}>
-            ✓ Submitted
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.1)', border: '1px solid var(--accent-success)', padding: '6px 12px', borderRadius: 6, fontSize: 13, color: 'var(--accent-success)' }}>
+            <CheckCircle2 size={14} strokeWidth={2} />
+            Submitted
           </span>
         )}
       </div>

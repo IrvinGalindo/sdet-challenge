@@ -44,55 +44,65 @@ export default function AdminLogin() {
 
   return (
     <div className="login-screen">
+      {/* Neural Midnight — animated background elements */}
+      <div className="login-screen-grid" aria-hidden="true" />
+      <div className="login-orb-mid" aria-hidden="true" />
+
       <div className="login-card-wrapper">
         <div className="login-card">
 
           <div className="login-brand">
             <img src="/favicon/android-chrome-192x192.png" alt="Presto AI Logo" className="login-logo" />
+            <div className="login-badge" aria-hidden="true">
+              <span className="login-badge-dot" />
+              AI Interview Platform
+            </div>
             <h1 className="login-title">{t('login.title')}</h1>
             <p className="login-subtitle">{t('login.subtitle')}</p>
           </div>
 
-        <form onSubmit={handleLogin} className="login-form">
-          {error && (
-            <div className="login-error">
-              <span className="login-error-icon">⚠</span>
-              {error}
+          <form onSubmit={handleLogin} className="login-form">
+            {error && (
+              <div className="login-error">
+                <span className="login-error-icon">⚠</span>
+                {error}
+              </div>
+            )}
+
+            <div className="login-field">
+              <label className="login-label" htmlFor="login-email">{t('login.emailLabel')}</label>
+              <input
+                id="login-email"
+                type="email"
+                className="login-input"
+                placeholder={t('login.emailPlaceholder')}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
             </div>
-          )}
 
-          <div className="login-field">
-            <label className="login-label" htmlFor="login-email">{t('login.emailLabel')}</label>
-            <input
-              id="login-email"
-              type="email"
-              className="login-input"
-              placeholder={t('login.emailPlaceholder')}
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </div>
+            <div className="login-field">
+              <label className="login-label" htmlFor="login-password">{t('login.passwordLabel')}</label>
+              <input
+                id="login-password"
+                type="password"
+                className="login-input"
+                placeholder={t('login.passwordPlaceholder')}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </div>
 
-          <div className="login-field">
-            <label className="login-label" htmlFor="login-password">{t('login.passwordLabel')}</label>
-            <input
-              id="login-password"
-              type="password"
-              className="login-input"
-              placeholder={t('login.passwordPlaceholder')}
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              autoComplete="current-password"
-            />
-          </div>
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? t('login.submitting') : t('login.submit')}
+            </button>
+          </form>
 
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? t('login.submitting') : t('login.submit')}
-          </button>
-        </form>
+          <p className="login-footer">Presto AI — Powered by AI Interview Platform</p>
 
         </div>{/* login-card */}
       </div>{/* login-card-wrapper */}
